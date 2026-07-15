@@ -1,0 +1,1771 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "AI Time-Manager API",
+        "description": "API for AI-driven time management tool for Software Engineering students. Implements Google OAuth, Google Calendar integration, Gemini AI-driven project decomposition, and a greedy schedule optimizer.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "Local development server"
+        }
+    ],
+    "security": [
+        {
+            "BearerAuth": []
+        }
+    ],
+    "paths": {
+        "/api/auth/google": {
+            "post": {
+                "summary": "Authenticate with Google OAuth",
+                "description": "Exchange Google OAuth 2.0 authorization code for a local JWT access token and synchronizes the user profile.",
+                "security": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "description": "Google OAuth 2.0 authorization code received from the frontend"
+                                    }
+                                },
+                                "required": [
+                                    "code"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successfully authenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or invalid authorization code",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during Google API interaction",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/me": {
+            "get": {
+                "summary": "Get current user profile",
+                "description": "Returns details of the currently authenticated user, including their scheduling persona.",
+                "responses": {
+                    "200": {
+                        "description": "User profile data",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing or invalid Bearer token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/persona": {
+            "put": {
+                "summary": "Update user persona for AI scheduling",
+                "description": "Updates user's academic and scheduling preferences (constraints, preferences, study limits). This configuration is used during AI scheduling.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PersonaInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Persona updated successfully. Returns the updated User profile.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input validation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/courses": {
+            "get": {
+                "summary": "Get all courses",
+                "description": "Retrieves all courses registered to the authenticated user.",
+                "responses": {
+                    "200": {
+                        "description": "List of courses",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Course"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a new course manually",
+                "description": "Create a custom course (subject) directly in the system.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CourseInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Course successfully created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Course"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Course name already exists or invalid payload",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/courses/{id}": {
+            "put": {
+                "summary": "Update course details",
+                "description": "Modify the name of an existing course.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Unique identifier of the course"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CourseInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Course updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Course"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or course name duplication",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Course not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a course",
+                "description": "Deletes the course and all associated projects and study sessions cascade-style.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Unique identifier of the course"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Course deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Course not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/projects": {
+            "get": {
+                "summary": "Get all projects",
+                "description": "Retrieves the projects list. Supports filtering by course or completion status.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "courseId",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Filter projects by course ID"
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "completed"
+                            ]
+                        },
+                        "description": "Filter by completion status. 'completed' projects are those with all sessions completed. 'active' projects have scheduled or missed sessions."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of projects",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Project"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a single project manually",
+                "description": "Manually add an academic task/project. This triggers the Gemini AI workflow to decompose the project into sessions, followed by scheduling.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProjectInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Project created and sessions successfully generated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectWithSessions"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or project name duplicate inside course",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/projects/batch-import": {
+            "post": {
+                "summary": "Import projects via JSON, trigger AI breakdown and scheduling",
+                "description": "Allows bulk import of unstructured course assignments. Automatically parses course names, creates courses, invokes Gemini for project complexity analysis + breakdown, and applies the greedy scheduler.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BatchImportInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Projects successfully imported and scheduled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Successfully imported and scheduled 2 projects"
+                                        },
+                                        "importedProjects": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ProjectWithSessions"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or invalid payload",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/projects/{id}": {
+            "get": {
+                "summary": "Get project details",
+                "description": "Fetch a single project with its generated study sessions nested inside.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Project ID"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Project detail with sessions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectWithSessions"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update a project",
+                "description": "Update project details (title, deadline). If the deadline is moved earlier, the backend verifies that existing study sessions can still fit before the new deadline.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Project ID"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProjectUpdateInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Project updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Project"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or schedule constraint violation (sessions exceed new deadline)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a project",
+                "description": "Deletes the project and all of its associated study sessions.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Project ID"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Project deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sessions": {
+            "get": {
+                "summary": "Get study sessions",
+                "description": "Retrieves sessions with filtering options. Primarily used for calendar views.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "startDate",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "Start of range filter (ISO 8601)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "endDate",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "End of range filter (ISO 8601)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "projectId",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Filter sessions belonging to a specific project"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of study sessions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/StudySession"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a session manually",
+                "description": "Create a custom study block manually. User can specify absolute times, or leave them null for the scheduler to populate.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SessionInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Session created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StudySession"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error or constraint violation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/sessions/{id}": {
+            "put": {
+                "summary": "Update a study session",
+                "description": "Modify session parameters. Mainly used for drag-and-drop actions on frontend (updating dates) or completing/failing a session.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Unique session ID"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateSessionInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Session updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StudySession"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error, overlapping with busy calendar slot, or exceeding user's daily hour limits",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a session manually",
+                "description": "Removes a specific study session. (Useful if the user decides certain prep tasks aren't necessary).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "Unique session ID"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Session deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/calendar/sync": {
+            "post": {
+                "summary": "Sync with Google Calendar and schedule unscheduled sessions",
+                "description": "Fetches occupied slots from Google Calendar API, respects user's persona limits, and executes the scheduling algorithm on all currently unscheduled StudySessions.",
+                "responses": {
+                    "200": {
+                        "description": "Sync and scheduling executed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sync successful"
+                                        },
+                                        "scheduledSessionsCount": {
+                                            "type": "integer",
+                                            "example": 5
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway - Google Calendar API error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/calendar/recalculate": {
+            "post": {
+                "summary": "Manually recalculate missed sessions to future slots",
+                "description": "Identifies SCHEDULED sessions in the past, marks them as MISSED, and runs the Greedy Scheduler algorithm to relocate them to available future slots without overlapping Google Calendar entries.",
+                "responses": {
+                    "200": {
+                        "description": "Recalculation complete",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Recalculated successfully"
+                                        },
+                                        "rescheduledSessionsCount": {
+                                            "type": "integer",
+                                            "example": 3
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/calendar/view": {
+            "get": {
+                "summary": "Get calendar grid data (Hash Map grouped by date)",
+                "description": "Fetches aggregated calendar data within a date range. Responses return a map of dates containing sessions and academic deadlines.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "startDate",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-06-29"
+                        },
+                        "description": "Start date boundary (YYYY-MM-DD)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "endDate",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-08-02"
+                        },
+                        "description": "End date boundary (YYYY-MM-DD)"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Calendar Hash Map",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CalendarViewResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid date range parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/dashboard": {
+            "get": {
+                "summary": "Get aggregated dashboard statistics",
+                "description": "Calculates overall course/project metrics, upcoming top 5 deadlines, and today's scheduling agenda. Runs efficient aggregated database operations.",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard statistics",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DashboardResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Enter your JWT token in the format: Bearer <token>"
+            }
+        },
+        "schemas": {
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "persona": {
+                        "$ref": "#/components/schemas/PersonaInput"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "email",
+                    "createdAt"
+                ]
+            },
+            "PersonaInput": {
+                "type": "object",
+                "properties": {
+                    "courseYear": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 6,
+                        "description": "Current year of study (1 to 6)"
+                    },
+                    "preferredTime": {
+                        "type": "string",
+                        "enum": [
+                            "morning",
+                            "afternoon",
+                            "evening"
+                        ],
+                        "description": "Preferred study time-window"
+                    },
+                    "studyOnWeekends": {
+                        "type": "boolean",
+                        "description": "Whether sessions can be scheduled on weekends"
+                    },
+                    "maxHoursPerDay": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 12,
+                        "description": "Maximum study hours per day constraint"
+                    }
+                },
+                "required": [
+                    "courseYear",
+                    "preferredTime",
+                    "studyOnWeekends",
+                    "maxHoursPerDay"
+                ]
+            },
+            "Course": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "userId",
+                    "name"
+                ]
+            },
+            "CourseInput": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "example": "Web Development"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "Project": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "courseId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "deadline": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "estimatedDifficulty": {
+                        "type": "string",
+                        "enum": [
+                            "easy",
+                            "medium",
+                            "hard"
+                        ],
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "id",
+                    "courseId",
+                    "title",
+                    "deadline"
+                ]
+            },
+            "ProjectInput": {
+                "type": "object",
+                "properties": {
+                    "courseId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Target course ID. If not found, backend will return 404."
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "deadline": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Deadline date and time (ISO 8601)"
+                    }
+                },
+                "required": [
+                    "courseId",
+                    "title",
+                    "deadline"
+                ]
+            },
+            "ProjectUpdateInput": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "deadline": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ProjectWithSessions": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Project"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "sessions": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/StudySession"
+                                }
+                            }
+                        },
+                        "required": [
+                            "sessions"
+                        ]
+                    }
+                ]
+            },
+            "StudySession": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "projectId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "durationMinutes": {
+                        "type": "integer"
+                    },
+                    "startTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "endTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "SCHEDULED",
+                            "COMPLETED",
+                            "MISSED"
+                        ]
+                    },
+                    "isCompromised": {
+                        "type": "boolean",
+                        "description": "Indicates if the session was scheduled using fallback constraints (e.g. outside preferred time, on weekends, or past deadline)"
+                    },
+                    "compromiseReason": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Explanation of why the session's constraints were violated"
+                    }
+                },
+                "required": [
+                    "id",
+                    "projectId",
+                    "title",
+                    "durationMinutes",
+                    "status",
+                    "isCompromised"
+                ]
+            },
+            "SessionInput": {
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "durationMinutes": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "startTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "endTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "projectId",
+                    "title",
+                    "durationMinutes"
+                ]
+            },
+            "UpdateSessionInput": {
+                "type": "object",
+                "properties": {
+                    "startTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "endTime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "SCHEDULED",
+                            "COMPLETED",
+                            "MISSED"
+                        ]
+                    }
+                }
+            },
+            "BatchImportInput": {
+                "type": "object",
+                "properties": {
+                    "projects": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "courseName": {
+                                    "type": "string",
+                                    "description": "Name of the course. The backend will perform a safe upsert based on (userId, courseName)."
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "nullable": true
+                                },
+                                "deadline": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                }
+                            },
+                            "required": [
+                                "courseName",
+                                "title",
+                                "deadline"
+                            ]
+                        },
+                        "minItems": 1
+                    }
+                },
+                "required": [
+                    "projects"
+                ]
+            },
+            "AuthResponse": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "description": "JWT Access Token for Bearer authentication headers"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                },
+                "required": [
+                    "token",
+                    "user"
+                ]
+            },
+            "CalendarViewResponse": {
+                "type": "object",
+                "properties": {
+                    "view": {
+                        "type": "object",
+                        "properties": {
+                            "startDate": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "endDate": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "totalDays": {
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "startDate",
+                            "endDate",
+                            "totalDays"
+                        ]
+                    },
+                    "calendar": {
+                        "type": "object",
+                        "description": "Date keyed objects containing arrays of sessions and deadlines scheduled for those days",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "sessions": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "projectId": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "title": {
+                                                "type": "string"
+                                            },
+                                            "courseName": {
+                                                "type": "string"
+                                            },
+                                            "startTime": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            },
+                                            "endTime": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            },
+                                            "durationMinutes": {
+                                                "type": "integer"
+                                            },
+                                            "status": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "SCHEDULED",
+                                                    "COMPLETED",
+                                                    "MISSED"
+                                                ]
+                                            },
+                                            "isCompromised": {
+                                                "type": "boolean",
+                                                "description": "Indicates if the session was scheduled using fallback constraints"
+                                            },
+                                            "compromiseReason": {
+                                                "type": "string",
+                                                "nullable": true,
+                                                "description": "Explanation of why the session's constraints were violated"
+                                            }
+                                        },
+                                        "required": [
+                                            "id",
+                                            "projectId",
+                                            "title",
+                                            "courseName",
+                                            "startTime",
+                                            "endTime",
+                                            "durationMinutes",
+                                            "status",
+                                            "isCompromised"
+                                        ]
+                                    }
+                                },
+                                "deadlines": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "projectId": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "title": {
+                                                "type": "string"
+                                            },
+                                            "courseName": {
+                                                "type": "string"
+                                            },
+                                            "deadlineTime": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            },
+                                            "estimatedDifficulty": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "easy",
+                                                    "medium",
+                                                    "hard"
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "projectId",
+                                            "title",
+                                            "courseName",
+                                            "deadlineTime",
+                                            "estimatedDifficulty"
+                                        ]
+                                    }
+                                }
+                            },
+                            "required": [
+                                "sessions",
+                                "deadlines"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "view",
+                    "calendar"
+                ]
+            },
+            "DashboardResponse": {
+                "type": "object",
+                "properties": {
+                    "overallProgress": {
+                        "type": "object",
+                        "properties": {
+                            "totalProjects": {
+                                "type": "integer"
+                            },
+                            "completedProjects": {
+                                "type": "integer"
+                            },
+                            "totalSessions": {
+                                "type": "integer"
+                            },
+                            "completedSessions": {
+                                "type": "integer"
+                            },
+                            "percentage": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                            }
+                        },
+                        "required": [
+                            "totalProjects",
+                            "completedProjects",
+                            "totalSessions",
+                            "completedSessions",
+                            "percentage"
+                        ]
+                    },
+                    "coursesProgress": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "courseId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "courseName": {
+                                    "type": "string"
+                                },
+                                "totalProjects": {
+                                    "type": "integer"
+                                },
+                                "completedProjects": {
+                                    "type": "integer"
+                                },
+                                "percentage": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                }
+                            },
+                            "required": [
+                                "courseId",
+                                "courseName",
+                                "totalProjects",
+                                "completedProjects",
+                                "percentage"
+                            ]
+                        }
+                    },
+                    "upcomingDeadlines": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "projectId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "courseName": {
+                                    "type": "string"
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "deadline": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "estimatedDifficulty": {
+                                    "type": "string",
+                                    "enum": [
+                                        "easy",
+                                        "medium",
+                                        "hard"
+                                    ]
+                                },
+                                "daysLeft": {
+                                    "type": "integer"
+                                },
+                                "progressPercentage": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                }
+                            },
+                            "required": [
+                                "projectId",
+                                "courseName",
+                                "title",
+                                "deadline",
+                                "estimatedDifficulty",
+                                "daysLeft",
+                                "progressPercentage"
+                            ]
+                        }
+                    },
+                    "todaysAgenda": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "sessionId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "projectId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "courseName": {
+                                    "type": "string"
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "startTime": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "endTime": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "enum": [
+                                        "SCHEDULED",
+                                        "COMPLETED",
+                                        "MISSED"
+                                    ]
+                                },
+                                "isCompromised": {
+                                    "type": "boolean",
+                                    "description": "Indicates if the session was scheduled using fallback constraints"
+                                },
+                                "compromiseReason": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "Explanation of why the session's constraints were violated"
+                                }
+                            },
+                            "required": [
+                                "sessionId",
+                                "projectId",
+                                "courseName",
+                                "title",
+                                "startTime",
+                                "endTime",
+                                "status",
+                                "isCompromised"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "overallProgress",
+                    "coursesProgress",
+                    "upcomingDeadlines",
+                    "todaysAgenda"
+                ]
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "statusCode": {
+                        "type": "integer"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "statusCode",
+                    "error",
+                    "message"
+                ]
+            }
+        }
+    }
+}
