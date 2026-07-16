@@ -21,9 +21,9 @@
   - [x] Implement Express routes, Controllers, and `celebrate` Joi validation schemas.
   - [x] Run tests and fix code until validation suites pass.
 
-- [ ] **Phase 3: Core Algorithm TDD (The Greedy Scheduler)**
-  - [ ] Write unit tests for `services/scheduling/greedyScheduler.js` covering preferred time bounds, weekends, session duration limits, and fallback levels (compromising preferred times, weekend study, splitting tasks, and deadline violations).
-  - [ ] Implement the Greedy Scheduler algorithm in `src/services/scheduling/greedyScheduler.js` using `date-fns` until all test cases pass.
+- [x] **Phase 3: Core Algorithm TDD (The Greedy Scheduler)**
+  - [x] Write unit tests for `services/scheduling/greedyScheduler.js` covering preferred time bounds, weekends, session duration limits, and fallback levels (compromising preferred times, weekend study, splitting tasks, and deadline violations).
+  - [x] Implement the Greedy Scheduler algorithm in `src/services/scheduling/greedyScheduler.js` using `date-fns` until all test cases pass.
 
 - [ ] **Phase 4: Database Integration & Dashboard Aggregation**
   - [ ] Connect Prisma to controllers/services for full CRUD operations.
