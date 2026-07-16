@@ -36,9 +36,9 @@
   - [x] Implement `googleCalendar.service.js` handling OAuth2 flow (offline access, refresh token), fetching list of user calendars, filtering out generic ones, querying free/busy schedules, and writing/clearing calendar events.
   - [x] Run tests and verify the code integrates external providers correctly.
 
-- [ ] **Phase 6: Background Jobs (Nightly Rescheduling)**
-  - [ ] Write unit tests for the rescheduling cron logic.
-  - [ ] Implement midnight cron job (`jobs/cron.js`) using `node-cron` to flag missed sessions and reschedule them automatically.
+- [x] **Phase 6: Background Jobs (Nightly Rescheduling)**
+  - [x] Write unit tests for the rescheduling cron logic.
+  - [x] Implement midnight cron job (`jobs/cron.js`) using `node-cron` to flag missed sessions and reschedule them automatically.
 
 - [ ] **Phase 7: Final End-to-End Review**
   - [ ] Run the complete test suite.

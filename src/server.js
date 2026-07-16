@@ -10,6 +10,10 @@ async function startServer() {
     // Verify database connection
     await prisma.$connect();
     console.log('[DB] Connection to database established successfully.');
+
+    // Start nightly reschedule background cron job
+    const { startCronJob } = require('./jobs/cron');
+    startCronJob();
     
     app.listen(config.port, () => {
       console.log(`[Server] Time-Manager API running on port ${config.port}`);

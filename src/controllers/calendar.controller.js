@@ -142,10 +142,11 @@ exports.sync = async (req, res, next) => {
 
 exports.recalculate = async (req, res, next) => {
   try {
-    // Recalculates all scheduled slots using Greedy Scheduler
+    const { rescheduleUserSessions } = require('../jobs/cron');
+    const count = await rescheduleUserSessions(req.user.id);
     res.status(200).json({
       message: 'Recalculated successfully',
-      rescheduledSessionsCount: 3
+      rescheduledSessionsCount: count
     });
   } catch (error) {
     next(error);
