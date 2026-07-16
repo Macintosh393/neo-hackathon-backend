@@ -1,9 +1,33 @@
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
 const errorMiddleware = require('./middlewares/error.middleware');
+const swaggerDocument = require('../swagger.json');
 
 const app = express();
 
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
+
+// Load rate limiter only in non-test environments
+if (process.env.NODE_ENV !== 'test') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: {
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: 'Too many requests from this IP, please try again after 15 minutes'
+    }
+  });
+  app.use(limiter);
+}
+
+// Swagger UI Documentation Endpoint
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
