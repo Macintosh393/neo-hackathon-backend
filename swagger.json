@@ -72,7 +72,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Auth"
+                ]
             }
         },
         "/api/users/me": {
@@ -100,7 +103,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Users"
+                ]
             }
         },
         "/api/users/persona": {
@@ -148,7 +154,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Users"
+                ]
             }
         },
         "/api/courses": {
@@ -179,7 +188,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Courses"
+                ]
             },
             "post": {
                 "summary": "Create a new course manually",
@@ -225,7 +237,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Courses"
+                ]
             }
         },
         "/api/courses/{id}": {
@@ -295,7 +310,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Courses"
+                ]
             },
             "delete": {
                 "summary": "Delete a course",
@@ -336,7 +354,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Courses"
+                ]
             }
         },
         "/api/projects": {
@@ -392,7 +413,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             },
             "post": {
                 "summary": "Create a single project manually",
@@ -438,7 +462,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             }
         },
         "/api/projects/batch-import": {
@@ -498,7 +525,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             }
         },
         "/api/projects/{id}": {
@@ -548,7 +578,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             },
             "put": {
                 "summary": "Update a project",
@@ -616,7 +649,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             },
             "delete": {
                 "summary": "Delete a project",
@@ -657,7 +693,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Projects"
+                ]
             }
         },
         "/api/sessions": {
@@ -720,7 +759,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Study Sessions"
+                ]
             },
             "post": {
                 "summary": "Create a session manually",
@@ -766,7 +808,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Study Sessions"
+                ]
             }
         },
         "/api/sessions/{id}": {
@@ -836,7 +881,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Study Sessions"
+                ]
             },
             "delete": {
                 "summary": "Delete a session manually",
@@ -877,7 +925,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Study Sessions"
+                ]
             }
         },
         "/api/calendar/sync": {
@@ -925,7 +976,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Calendar"
+                ]
             }
         },
         "/api/calendar/recalculate": {
@@ -963,7 +1017,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Calendar"
+                ]
             }
         },
         "/api/calendar/view": {
@@ -1025,7 +1082,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Calendar"
+                ]
             }
         },
         "/api/dashboard": {
@@ -1053,7 +1113,10 @@
                             }
                         }
                     }
-                }
+                },
+                "tags": [
+                    "Dashboard"
+                ]
             }
         }
     },
@@ -1767,5 +1830,35 @@
                 ]
             }
         }
-    }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Authentication and authorization operations"
+        },
+        {
+            "name": "Users",
+            "description": "User profile and persona settings"
+        },
+        {
+            "name": "Courses",
+            "description": "Custom courses management"
+        },
+        {
+            "name": "Projects",
+            "description": "Academic tasks and projects management"
+        },
+        {
+            "name": "Study Sessions",
+            "description": "Study session blocks, status updates and operations"
+        },
+        {
+            "name": "Calendar",
+            "description": "Google Calendar sync, recalculations and view aggregation"
+        },
+        {
+            "name": "Dashboard",
+            "description": "Dashboard progress statistics and analytics"
+        }
+    ]
 }
