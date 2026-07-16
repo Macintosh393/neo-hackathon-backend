@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: time-manager-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: time_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - time_manager_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  time_manager_postgres_data:

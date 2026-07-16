@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  googleRefreshToken String?  // Token for background calendar access
+  persona            Json?    // Stored questionnaire answers (JSONB in Postgres)
+  createdAt          DateTime @default(now())
+  
+  courses            Course[]
+}
+
+model Course {
+  id        String    @id @default(uuid())
+  userId    String
+  name      String    // Extracted from batch import or manually entered
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects  Project[]
+
+  // A single user cannot have two courses with the exact same name
+  @@unique([userId, name]) 
+}
+
+model Project {
+  id                  String   @id @default(uuid())
+  courseId            String
+  title               String
+  description         String?
+  deadline            DateTime
+  estimatedDifficulty String?  // "easy", "medium", "hard"
+  
+  course              Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sessions            StudySession[]
+
+  // Prevent duplicate project titles in the same course
+  @@unique([courseId, title]) 
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  MISSED
+}
+
+model StudySession {
+  id                 String    @id @default(uuid())
+  projectId          String
+  title              String    // AI generated title (Ukrainian)
+  durationMinutes    Int       // Duration in minutes
+  startTime          DateTime? // Populated by scheduler algorithm
+  endTime            DateTime? // Populated by scheduler algorithm
+  status             SessionStatus @default(SCHEDULED)
+  isCompromised      Boolean   @default(false)
+  compromiseReason   String?
+
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Indexes for fast calendar queries
+  @@index([projectId])
+  @@index([startTime])
+  @@index([status])
+}

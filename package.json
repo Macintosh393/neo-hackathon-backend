@@ -1,0 +1,40 @@
+{
+  "name": "neo-hackathon-backend",
+  "version": "1.0.0",
+  "description": "AI Time-Manager Backend for Software Engineering and IT students",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "dependencies": {
+    "@google/genai": "^0.2.0",
+    "@prisma/client": "^5.16.1",
+    "celebrate": "^15.0.3",
+    "cors": "^2.8.6",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.6.0",
+    "google-auth-library": "^9.11.0",
+    "googleapis": "^140.0.0",
+    "helmet": "^8.3.0",
+    "joi": "^17.13.3",
+    "node-cron": "^4.6.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prisma": "^5.16.1",
+    "supertest": "^7.0.0",
+    "vitest": "^1.6.0"
+  }
+}
