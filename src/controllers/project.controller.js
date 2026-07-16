@@ -1,15 +1,7 @@
 const prisma = require('../prisma');
 const greedyScheduler = require('../services/scheduling/greedyScheduler');
-
-// Mock AI Decomposer session generator (Ukrainian)
-const mockDecomposeProject = (title) => {
-  return [
-    { title: `Аналіз вимог та архітектура для ${title}`, durationMinutes: 90 },
-    { title: `Проєктування схеми даних для ${title}`, durationMinutes: 120 },
-    { title: `Кодування основного функціоналу ${title}`, durationMinutes: 180 },
-    { title: `Написання юніт-тестів для ${title}`, durationMinutes: 90 }
-  ];
-};
+const aiAdapter = require('../services/ai/ai.adapter');
+const calendarService = require('../services/googleCalendar.service');
 
 /**
  * Project CRUD and Scheduling Controller.
@@ -74,11 +66,21 @@ exports.createProject = async (req, res, next) => {
       maxHoursPerDay: 4
     };
 
-    // AI task decomposition
-    const aiSessions = mockDecomposeProject(title);
+    // AI task decomposition using real Gemini API structure
+    const aiResponse = await aiAdapter.decomposeProject(
+      { courseName: course.name, title, description },
+      persona
+    );
+    const aiSessions = aiResponse.sessions;
+    const difficulty = aiResponse.difficulty || 'medium';
 
-    // Fetch busy slots from calendar service stub (In Phase 5 we connect to Google Calendar)
-    const busySlots = [];
+    // Fetch busy slots from calendar service
+    let busySlots = [];
+    try {
+      busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(deadline));
+    } catch (err) {
+      console.warn('Failed to retrieve busy slots from Google Calendar, using empty schedule:', err);
+    }
 
     // Run scheduling pure engine
     const scheduledSessions = greedyScheduler({
@@ -97,7 +99,7 @@ exports.createProject = async (req, res, next) => {
           title,
           description: description || null,
           deadline: new Date(deadline),
-          estimatedDifficulty: 'medium'
+          estimatedDifficulty: difficulty
         }
       });
 
@@ -125,6 +127,13 @@ exports.createProject = async (req, res, next) => {
         sessions
       };
     });
+
+    // Write scheduled sessions to Google Calendar
+    try {
+      await calendarService.createEvents(req.user.id, result.sessions);
+    } catch (calError) {
+      console.warn('Google Calendar event writing failed:', calError);
+    }
 
     res.status(201).json(result);
 
@@ -156,7 +165,7 @@ exports.batchImport = async (req, res, next) => {
       maxHoursPerDay: 4
     };
 
-    // Process each project sequentially to avoid concurrency issues during transaction
+    // Process each project sequentially
     for (const p of projects) {
       // Find or create course by name
       let course = await prisma.course.findFirst({
@@ -169,11 +178,26 @@ exports.batchImport = async (req, res, next) => {
         });
       }
 
-      const aiSessions = mockDecomposeProject(p.title);
+      // Decompose using Gemini AI
+      const aiResponse = await aiAdapter.decomposeProject(
+        { courseName: course.name, title: p.title, description: p.description },
+        persona
+      );
+      const aiSessions = aiResponse.sessions;
+      const difficulty = aiResponse.difficulty || 'medium';
+
+      // Query busy slots from Google Calendar
+      let busySlots = [];
+      try {
+        busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(p.deadline));
+      } catch (err) {
+        console.warn('Google Calendar busy retrieval failed during batch import:', err);
+      }
+
       const scheduledSessions = greedyScheduler({
         aiSessions,
         persona,
-        busySlots: [],
+        busySlots,
         projectDeadline: new Date(p.deadline),
         startDate: new Date()
       });
@@ -185,7 +209,7 @@ exports.batchImport = async (req, res, next) => {
             title: p.title,
             description: p.description || null,
             deadline: new Date(p.deadline),
-            estimatedDifficulty: 'medium'
+            estimatedDifficulty: difficulty
           }
         });
 
@@ -213,6 +237,13 @@ exports.batchImport = async (req, res, next) => {
           sessions
         };
       });
+
+      // Sync events to Google Calendar
+      try {
+        await calendarService.createEvents(req.user.id, result.sessions);
+      } catch (calError) {
+        console.warn('Google Calendar event writing failed during batch import:', calError);
+      }
 
       importedProjects.push(result);
     }

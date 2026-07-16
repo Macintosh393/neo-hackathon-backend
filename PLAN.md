@@ -31,10 +31,10 @@
   - [x] Implement complex Prisma queries (`groupBy`, `_count`) to calculate `overallProgress`, `coursesProgress`, and `upcomingDeadlines` directly in the database layer.
   - [x] Ensure the complete flow works (from `batch-import` request -> AI mock -> DB saving -> Scheduler -> View Calendar).
 
-- [ ] **Phase 5: External Providers (Real Implementation)**
-  - [ ] Implement `AiAdapter` for Google Gemini API parsing and structured Ukrainian JSON output.
-  - [ ] Implement Google Calendar Service using `googleapis` (fetching calendars, filtering out holidays, performing freebusy query).
-  - [ ] Handle API errors gracefully (e.g., rate limits, invalid tokens).
+- [x] **Phase 5: External Providers (Real Implementation)**
+  - [x] Implement `AiAdapter` for Google Gemini API parsing and structured Ukrainian JSON output.
+  - [x] Implement `googleCalendar.service.js` handling OAuth2 flow (offline access, refresh token), fetching list of user calendars, filtering out generic ones, querying free/busy schedules, and writing/clearing calendar events.
+  - [x] Run tests and verify the code integrates external providers correctly.
 
 - [ ] **Phase 6: Background Jobs (Nightly Rescheduling)**
   - [ ] Write unit tests for the rescheduling cron logic.

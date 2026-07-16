@@ -1,5 +1,3 @@
-const { vi } = require('vitest');
-
 const mockCalendarList = vi.fn().mockResolvedValue({
   data: {
     items: [
@@ -42,7 +40,11 @@ const mockGoogleApis = {
       OAuth2: class OAuth2 {
         constructor() {
           this.setCredentials = vi.fn();
-          this.generateAuthUrl = vi.fn().mockReturnValue('https://mock-google-auth-url');
+          this.generateAuthUrl = vi.fn().mockImplementation((config) => {
+            const accessType = config?.access_type || '';
+            const prompt = config?.prompt || '';
+            return `https://mock-google-auth-url?access_type=${accessType}&prompt=${prompt}`;
+          });
           this.getToken = vi.fn().mockResolvedValue({
             tokens: {
               access_token: 'mock-access-token',
