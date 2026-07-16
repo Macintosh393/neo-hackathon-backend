@@ -16,10 +16,10 @@
   - [x] Create strict Vitest Mocks using `vi.mock()` for `@google/genai` and `googleapis`.
   - [x] Set up basic project files structure (`src/app.js`, `src/server.js`, `src/config/env.js`, folders for controllers, routes, services, etc. as defined in `STRUCTURE.md`).
 
-- [ ] **Phase 2: Input Validation & Routing TDD**
-  - [ ] Write Vitest/Supertest test suites for all endpoints based on `swagger.json` validation constraints.
-  - [ ] Implement Express routes, Controllers, and `celebrate` Joi validation schemas.
-  - [ ] Run tests and fix code until validation suites pass.
+- [x] **Phase 2: Input Validation & Routing TDD**
+  - [x] Write Vitest/Supertest test suites for all endpoints based on `swagger.json` validation constraints.
+  - [x] Implement Express routes, Controllers, and `celebrate` Joi validation schemas.
+  - [x] Run tests and fix code until validation suites pass.
 
 - [ ] **Phase 3: Core Algorithm TDD (The Greedy Scheduler)**
   - [ ] Write unit tests for `services/scheduling/greedyScheduler.js` covering preferred time bounds, weekends, session duration limits, and fallback levels (compromising preferred times, weekend study, splitting tasks, and deadline violations).

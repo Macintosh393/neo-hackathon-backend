@@ -10,8 +10,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// We will mount our routes router here in Phase 2
-// app.use('/api', require('./routes'));
+// Mount main API routes router
+app.use('/api', require('./routes'));
 
 // Fallback for route not found
 app.use((req, res, next) => {
