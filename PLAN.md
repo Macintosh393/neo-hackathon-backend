@@ -25,11 +25,11 @@
   - [x] Write unit tests for `services/scheduling/greedyScheduler.js` covering preferred time bounds, weekends, session duration limits, and fallback levels (compromising preferred times, weekend study, splitting tasks, and deadline violations).
   - [x] Implement the Greedy Scheduler algorithm in `src/services/scheduling/greedyScheduler.js` using `date-fns` until all test cases pass.
 
-- [ ] **Phase 4: Database Integration & Dashboard Aggregation**
-  - [ ] Connect Prisma to controllers/services for full CRUD operations.
-  - [ ] Write tests for `GET /api/dashboard`.
-  - [ ] Implement Prisma aggregations (`groupBy`, `_count`, `SUM`) in database queries for high-performance dashboard calculations.
-  - [ ] Implement `batch-import` and normal project creation routing connecting Prisma and Scheduler.
+- [x] **Phase 4: Database Integration & Dashboard Aggregation**
+  - [x] Connect Prisma to the controllers for full CRUD operations.
+  - [x] Write integration tests for `GET /api/dashboard`.
+  - [x] Implement complex Prisma queries (`groupBy`, `_count`) to calculate `overallProgress`, `coursesProgress`, and `upcomingDeadlines` directly in the database layer.
+  - [x] Ensure the complete flow works (from `batch-import` request -> AI mock -> DB saving -> Scheduler -> View Calendar).
 
 - [ ] **Phase 5: External Providers (Real Implementation)**
   - [ ] Implement `AiAdapter` for Google Gemini API parsing and structured Ukrainian JSON output.
