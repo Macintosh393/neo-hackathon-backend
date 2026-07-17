@@ -1,92 +1,59 @@
+/**
+ * Course Controller
+ *
+ * Thin HTTP adapter. Prisma error codes are no longer checked here —
+ * the centralized error middleware handles P2002 (409) and P2025 (404).
+ */
+
 import prisma from '../prisma.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 /**
- * Course CRUD Controller.
+ * GET /api/courses
+ * Returns all courses owned by the authenticated user.
  */
-export const getCourses = async (req, res, next) => {
-  try {
-    const courses = await prisma.course.findMany({
-      where: { userId: req.user.id }
-    });
-    res.status(200).json(courses);
-  } catch (error) {
-    next(error);
-  }
-};
+export const getCourses = asyncHandler(async (req, res) => {
+  const courses = await prisma.course.findMany({
+    where: { userId: req.user.id },
+  });
+  res.status(200).json(courses);
+});
 
-export const createCourse = async (req, res, next) => {
-  try {
-    const { name } = req.body;
-    
-    // Check if unique constraint would be violated manually or let Prisma throw
-    const course = await prisma.course.create({
-      data: {
-        userId: req.user.id,
-        name
-      }
-    });
-    
-    res.status(201).json(course);
-  } catch (error) {
-    // Handle uniqueness constraint P2002
-    if (error.code === 'P2002') {
-      return res.status(409).json({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A course with this name already exists'
-      });
-    }
-    next(error);
-  }
-};
+/**
+ * POST /api/courses
+ * Creates a new course for the authenticated user.
+ * Prisma P2002 (unique violation) is handled centrally → 409 Conflict.
+ */
+export const createCourse = asyncHandler(async (req, res) => {
+  const course = await prisma.course.create({
+    data: { userId: req.user.id, name: req.body.name },
+  });
+  res.status(201).json(course);
+});
 
-export const updateCourse = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { name } = req.body;
-    
-    const course = await prisma.course.update({
-      where: { id, userId: req.user.id },
-      data: { name }
-    });
-    
-    res.status(200).json(course);
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Course not found or unauthorized'
-      });
-    }
-    next(error);
-  }
-};
+/**
+ * PUT /api/courses/:id
+ * Renames a course. Only the owning user may update.
+ * Prisma P2025 (not found / unauthorized) → 404 Not Found.
+ */
+export const updateCourse = asyncHandler(async (req, res) => {
+  const course = await prisma.course.update({
+    where: { id: req.params.id, userId: req.user.id },
+    data: { name: req.body.name },
+  });
+  res.status(200).json(course);
+});
 
-export const deleteCourse = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    
-    await prisma.course.delete({
-      where: { id, userId: req.user.id }
-    });
-    
-    res.status(204).end();
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Course not found or unauthorized'
-      });
-    }
-    next(error);
-  }
-};
+/**
+ * DELETE /api/courses/:id
+ * Deletes a course and all cascading projects/sessions.
+ * Prisma P2025 → 404 Not Found.
+ */
+export const deleteCourse = asyncHandler(async (req, res) => {
+  await prisma.course.delete({
+    where: { id: req.params.id, userId: req.user.id },
+  });
+  res.status(204).end();
+});
 
-export default {
-  getCourses,
-  createCourse,
-  updateCourse,
-  deleteCourse
-};
+export default { getCourses, createCourse, updateCourse, deleteCourse };

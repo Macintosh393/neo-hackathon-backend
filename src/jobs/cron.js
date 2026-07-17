@@ -3,6 +3,7 @@ import greedyScheduler from '../services/scheduling/greedyScheduler.js';
 import calendarService from '../services/googleCalendar.service.js';
 import cron from 'node-cron';
 import { logger } from '../config/logger.js';
+import { DEFAULT_PERSONA } from '../constants/persona.js';
 
 /**
  * Recalculate and reschedule user study sessions starting from now.
@@ -13,12 +14,7 @@ const rescheduleUserSessions = async (userId) => {
   });
   if (!user) return 0;
 
-  const persona = user.persona || {
-    courseYear: 3,
-    preferredTime: 'evening',
-    studyOnWeekends: false,
-    maxHoursPerDay: 4
-  };
+  const persona = user.persona || DEFAULT_PERSONA;
 
   const now = new Date();
 

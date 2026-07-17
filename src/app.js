@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import errorMiddleware from './middlewares/error.middleware.js';
 import swaggerDocument from '../swagger.json' with { type: 'json' };
 import { httpLogger } from './config/logger.js';
+import { NotFoundError } from './utils/AppError.js';
 
 const app = express();
 
@@ -40,11 +41,9 @@ app.get('/health', (req, res) => {
 // Mount main API routes router
 app.use('/api', apiRouter);
 
-// Fallback for route not found
+// Fallback for route not found — throws typed NotFoundError
 app.use((req, res, next) => {
-  const err = new Error('Not Found');
-  err.statusCode = 404;
-  next(err);
+  next(new NotFoundError('Not Found'));
 });
 
 // Global Error Handler (Handles celebrate and standard errors)

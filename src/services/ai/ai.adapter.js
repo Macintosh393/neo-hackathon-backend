@@ -1,12 +1,23 @@
-import { mockGoogleGenAI } from '../../__tests__/mocks/gemini.mock.js';
-import { GoogleGenAI as RealGoogleGenAI } from '@google/genai';
+/**
+ * AI Adapter — Gemini Integration
+ *
+ * Thin adapter over Google Gemini API responsible for decomposing
+ * university projects into structured study sessions.
+ * Falls back to a hardcoded session set when:
+ *   - A dummy/testing API key is detected
+ *   - The Gemini API call fails for any reason
+ */
+
+import { GoogleGenAI } from '@google/genai';
 import { logger } from '../../config/logger.js';
 
-const GoogleGenAI = process.env.NODE_ENV === 'test'
-  ? mockGoogleGenAI.GoogleGenAI
-  : RealGoogleGenAI;
-
-// Helper to construct Gemini prompt template
+/**
+ * Builds the structured prompt sent to Gemini.
+ *
+ * @param {{ courseName, title, description }} project
+ * @param {number} maxMinutes - Max session duration (from persona)
+ * @returns {string} prompt text
+ */
 const generatePrompt = (project, maxMinutes) => `
 You are an expert technical project manager and study planner for Software Engineering students.
 Your task is to analyze a university project and break it down into actionable, sequential study sessions.
@@ -37,20 +48,31 @@ You must return ONLY a valid JSON object matching this schema. Do not wrap the J
 }
 `;
 
+/** Fallback session list returned when AI is unavailable */
+const buildFallbackSessions = (title) => ({
+  difficulty: 'medium',
+  sessions: [
+    { title: `Аналіз вимог та архітектура для "${title}"`, durationMinutes: 90 },
+    { title: `Проєктування схеми даних для "${title}"`, durationMinutes: 120 },
+    { title: `Кодування основного функціоналу "${title}"`, durationMinutes: 180 },
+    { title: `Написання юніт-тестів для "${title}"`, durationMinutes: 90 },
+  ],
+});
+
+/**
+ * Decomposes a university project into AI-generated study sessions.
+ *
+ * @param {{ courseName, title, description }} project
+ * @param {{ maxMinutesPerDay?, maxHoursPerDay? }} persona
+ * @returns {Promise<{ difficulty: string, sessions: Array<{ title: string, durationMinutes: number }> }>}
+ */
 export const decomposeProject = async (project, persona) => {
   const apiKey = process.env.GEMINI_API_KEY || 'dummy-api-key';
 
-  if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey')) {
+  // Detect test/dummy keys and return fallback immediately
+  if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey') || apiKey === 'dummy-api-key') {
     logger.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
-    return {
-      difficulty: 'medium',
-      sessions: [
-        { title: `Аналіз вимог та архітектура для "${project.title}"`, durationMinutes: 90 },
-        { title: `Проєктування схеми даних для "${project.title}"`, durationMinutes: 120 },
-        { title: `Кодування основного функціоналу "${project.title}"`, durationMinutes: 180 },
-        { title: `Написання юніт-тестів для "${project.title}"`, durationMinutes: 90 }
-      ]
-    };
+    return buildFallbackSessions(project.title);
   }
 
   try {
@@ -61,26 +83,14 @@ export const decomposeProject = async (project, persona) => {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
+      config: { responseMimeType: 'application/json' },
     });
 
     return JSON.parse(response.text);
   } catch (error) {
     logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
-    return {
-      difficulty: 'medium',
-      sessions: [
-        { title: `Аналіз вимог та архітектура для "${project.title}"`, durationMinutes: 90 },
-        { title: `Проєктування схеми даних для "${project.title}"`, durationMinutes: 120 },
-        { title: `Кодування основного функціоналу "${project.title}"`, durationMinutes: 180 },
-        { title: `Написання юніт-тестів для "${project.title}"`, durationMinutes: 90 }
-      ]
-    };
+    return buildFallbackSessions(project.title);
   }
 };
 
-export default {
-  decomposeProject
-};
+export default { decomposeProject };

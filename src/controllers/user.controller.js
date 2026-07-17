@@ -1,61 +1,55 @@
+/**
+ * User Controller
+ *
+ * Handles user profile and persona questionnaire endpoints.
+ * Uses asyncHandler and throws typed NotFoundError instead of inline responses.
+ */
+
 import prisma from '../prisma.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { NotFoundError } from '../utils/AppError.js';
 
 /**
- * User Profile and Persona Controller.
+ * GET /api/users/me
+ * Returns the authenticated user's profile (id, email, persona, createdAt).
+ * Throws NotFoundError if the user record is somehow missing.
  */
-export const getMe = async (req, res, next) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-    
-    if (!user) {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'User profile not found'
-      });
-    }
-    
-    res.status(200).json({
-      id: user.id,
-      email: user.email,
-      persona: user.persona,
-      createdAt: user.createdAt
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+export const getMe = asyncHandler(async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
 
-export const updatePersona = async (req, res, next) => {
-  try {
-    const { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay } = req.body;
-    
-    const user = await prisma.user.update({
-      where: { id: req.user.id },
-      data: {
-        persona: {
-          courseYear,
-          preferredTime,
-          studyOnWeekends,
-          maxHoursPerDay
-        }
-      }
-    });
-    
-    res.status(200).json({
-      id: user.id,
-      email: user.email,
-      persona: user.persona,
-      createdAt: user.createdAt
-    });
-  } catch (error) {
-    next(error);
+  if (!user) {
+    throw new NotFoundError('User profile not found');
   }
-};
 
-export default {
-  getMe,
-  updatePersona
-};
+  res.status(200).json({
+    id: user.id,
+    email: user.email,
+    persona: user.persona,
+    createdAt: user.createdAt,
+  });
+});
+
+/**
+ * PUT /api/users/persona
+ * Saves the user's study persona questionnaire answers.
+ * These drive the scheduling algorithm's preferences.
+ */
+export const updatePersona = asyncHandler(async (req, res) => {
+  const { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay } = req.body;
+
+  const user = await prisma.user.update({
+    where: { id: req.user.id },
+    data: {
+      persona: { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay },
+    },
+  });
+
+  res.status(200).json({
+    id: user.id,
+    email: user.email,
+    persona: user.persona,
+    createdAt: user.createdAt,
+  });
+});
+
+export default { getMe, updatePersona };

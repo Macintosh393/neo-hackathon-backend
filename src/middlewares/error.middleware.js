@@ -1,46 +1,79 @@
 import { isCelebrateError } from 'celebrate';
+import { Prisma } from '@prisma/client';
+import { AppError } from '../utils/AppError.js';
 import { logger } from '../config/logger.js';
 
 /**
  * Global catch-all error handling middleware.
- * Parses Celebrate validation errors as 400 Bad Requests and propagates general errors.
- * 
- * @param {Error} err - Caught error object
- * @param {import('express').Request} req - Express Request
- * @param {import('express').Response} res - Express Response
- * @param {import('express').NextFunction} next - Express Next Function
+ *
+ * Handles errors in three distinct categories:
+ *  1. Celebrate/Joi validation errors → 400 Bad Request
+ *  2. Typed AppError (NotFoundError, ConflictError, etc.) → their own status
+ *  3. Prisma known errors → mapped to HTTP semantics (P2002→409, P2025→404)
+ *  4. Unexpected errors → 500 Internal Server Error
+ *
+ * Per Express docs (Context7): error handler MUST have 4 parameters and
+ * MUST be the last middleware registered.
+ *
+ * @param {Error} err
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
 function errorMiddleware(err, req, res, next) {
-  // Handle celebrate Joi validation errors
+  // --- 1. Celebrate/Joi validation errors → 400 ---
   if (isCelebrateError(err)) {
-    let message = 'Validation error';
     const details = [];
-    
     for (const [segment, joiError] of err.details.entries()) {
       details.push(`${segment}: ${joiError.message}`);
     }
-    
-    if (details.length > 0) {
-      message = details.join('; ');
-    }
-
+    const message = details.length > 0 ? details.join('; ') : 'Validation error';
     return res.status(400).json({
       statusCode: 400,
       error: 'Bad Request',
-      message
+      message,
     });
   }
 
-  // Handle standard HTTP status errors
+  // --- 2. Typed AppError (from service/controller layer) ---
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      statusCode: err.statusCode,
+      error: err.name,
+      message: err.message,
+    });
+  }
+
+  // --- 3. Prisma known request errors — centralized mapping ---
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      // Unique constraint violation
+      return res.status(409).json({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'A resource with these unique fields already exists',
+      });
+    }
+    if (err.code === 'P2025') {
+      // Record not found
+      return res.status(404).json({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'The requested resource was not found',
+      });
+    }
+  }
+
+  // --- 4. Unexpected / unhandled errors → 500 ---
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal Server Error';
 
-  logger.error({ err, statusCode, message }, `[Error] ${statusCode} - ${message}`);
+  logger.error({ err, statusCode }, `[Error] ${statusCode} - ${message}`);
 
   res.status(statusCode).json({
     statusCode,
-    error: statusCode === 500 ? 'Internal Server Error' : err.name || 'API Error',
-    message: statusCode === 500 ? 'An unexpected error occurred on the server.' : message
+    error: statusCode === 500 ? 'Internal Server Error' : (err.name || 'Error'),
+    message: statusCode === 500 ? 'An unexpected error occurred on the server.' : message,
   });
 }
 

@@ -3,6 +3,9 @@ import { PrismaClient } from '@prisma/client';
 let prisma;
 
 if (process.env.NODE_ENV === 'test') {
+  // Dynamically import vi from Vitest only in the test environment.
+  // A static top-level import would fail in production where vitest is not installed.
+  const { vi } = await import('vitest');
   // When running tests, we export a mock singleton to isolate controllers
   // and prevent connection errors on localhost:5432.
   prisma = {
