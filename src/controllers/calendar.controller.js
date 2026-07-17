@@ -129,7 +129,7 @@ export const sync = async (req, res, next) => {
       await calendarService.clearEvents(req.user.id, start, end);
       await calendarService.createEvents(req.user.id, sessions);
     } catch (calErr) {
-      console.warn('Google Calendar sync connection failed, proceeding with local success:', calErr);
+      req.log.warn({ err: calErr }, 'Google Calendar sync connection failed, proceeding with local success');
     }
 
     res.status(200).json({
@@ -143,7 +143,6 @@ export const sync = async (req, res, next) => {
 
 export const recalculate = async (req, res, next) => {
   try {
-    
     const count = await rescheduleUserSessions(req.user.id);
     res.status(200).json({
       message: 'Recalculated successfully',

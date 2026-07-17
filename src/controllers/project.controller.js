@@ -79,7 +79,7 @@ export const createProject = async (req, res, next) => {
     try {
       busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(deadline));
     } catch (err) {
-      console.warn('Failed to retrieve busy slots from Google Calendar, using empty schedule:', err);
+      req.log.warn({ err }, 'Failed to retrieve busy slots from Google Calendar, using empty schedule');
     }
 
     // Run scheduling pure engine
@@ -132,7 +132,7 @@ export const createProject = async (req, res, next) => {
     try {
       await calendarService.createEvents(req.user.id, result.sessions);
     } catch (calError) {
-      console.warn('Google Calendar event writing failed:', calError);
+      req.log.warn({ err: calError }, 'Google Calendar event writing failed');
     }
 
     res.status(201).json(result);
@@ -191,7 +191,7 @@ export const batchImport = async (req, res, next) => {
       try {
         busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(p.deadline));
       } catch (err) {
-        console.warn('Google Calendar busy retrieval failed during batch import:', err);
+        req.log.warn({ err }, 'Google Calendar busy retrieval failed during batch import');
       }
 
       const scheduledSessions = greedyScheduler({
@@ -242,7 +242,7 @@ export const batchImport = async (req, res, next) => {
       try {
         await calendarService.createEvents(req.user.id, result.sessions);
       } catch (calError) {
-        console.warn('Google Calendar event writing failed during batch import:', calError);
+        req.log.warn({ err: calError }, 'Google Calendar event writing failed during batch import');
       }
 
       importedProjects.push(result);

@@ -1,4 +1,5 @@
 import { isCelebrateError } from 'celebrate';
+import { logger } from '../config/logger.js';
 
 /**
  * Global catch-all error handling middleware.
@@ -34,7 +35,7 @@ function errorMiddleware(err, req, res, next) {
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal Server Error';
 
-  console.error(`[Error] ${statusCode} - ${message}`, err.stack);
+  logger.error({ err, statusCode, message }, `[Error] ${statusCode} - ${message}`);
 
   res.status(statusCode).json({
     statusCode,

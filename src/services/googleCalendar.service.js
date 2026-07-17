@@ -1,6 +1,7 @@
 import { mockGoogleApis } from '../__tests__/mocks/googleCalendar.mock.js';
 import { google as realGoogle } from 'googleapis';
 import prisma from '../prisma.js';
+import { logger } from '../config/logger.js';
 
 const google = process.env.NODE_ENV === 'test'
   ? mockGoogleApis.google
@@ -35,12 +36,10 @@ export const getBusySlots = async (userId, startDate, endDate) => {
   const user = await prisma.user.findUnique({
     where: { id: userId }
   });
-
   if (!user || !user.googleRefreshToken) {
-    console.warn('[Google Calendar Service] User has no active Google credentials. Skipping busy slot query.');
+    logger.warn({ userId }, '[Google Calendar Service] User has no active Google credentials. Skipping busy slot query.');
     return [];
   }
-
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
     process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',

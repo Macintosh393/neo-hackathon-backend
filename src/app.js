@@ -6,12 +6,14 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import errorMiddleware from './middlewares/error.middleware.js';
 import swaggerDocument from '../swagger.json' with { type: 'json' };
+import { httpLogger } from './config/logger.js';
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(httpLogger);
 
 // Load rate limiter only in non-test environments
 if (process.env.NODE_ENV !== 'test') {

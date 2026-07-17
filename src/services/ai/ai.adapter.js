@@ -1,5 +1,6 @@
 import { mockGoogleGenAI } from '../../__tests__/mocks/gemini.mock.js';
 import { GoogleGenAI as RealGoogleGenAI } from '@google/genai';
+import { logger } from '../../config/logger.js';
 
 const GoogleGenAI = process.env.NODE_ENV === 'test'
   ? mockGoogleGenAI.GoogleGenAI
@@ -40,7 +41,7 @@ export const decomposeProject = async (project, persona) => {
   const apiKey = process.env.GEMINI_API_KEY || 'dummy-api-key';
 
   if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey')) {
-    console.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
+    logger.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
     return {
       difficulty: 'medium',
       sessions: [
@@ -67,7 +68,7 @@ export const decomposeProject = async (project, persona) => {
 
     return JSON.parse(response.text);
   } catch (error) {
-    console.error('[AI Adapter] Gemini API call failed. Returning fallback study sessions.', error);
+    logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
     return {
       difficulty: 'medium',
       sessions: [
