@@ -1,11 +1,12 @@
-const router = require('express').Router();
-const userController = require('../controllers/user.controller');
-const userValidator = require('../validators/user.validator');
-const authMiddleware = require('../middlewares/auth.middleware');
+import express from 'express';
+const router = express.Router();
+import * as userController from '../controllers/user.controller.js';
+import * as userValidator from '../validators/user.validator.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
 
 router.use(authMiddleware);
 
 router.get('/me', userController.getMe);
 router.put('/persona', userValidator.putPersona, userController.updatePersona);
 
-module.exports = router;
+export default router;

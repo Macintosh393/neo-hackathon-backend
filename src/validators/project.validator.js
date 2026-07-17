@@ -1,4 +1,4 @@
-const { celebrate, Joi, Segments } = require('celebrate');
+import { celebrate, Joi, Segments } from 'celebrate';
 
 const getProjects = celebrate({
   [Segments.QUERY]: Joi.object().keys({
@@ -46,7 +46,7 @@ const updateProject = celebrate({
   })
 });
 
-module.exports = {
+export {
   getProjects,
   createProject,
   batchImport,

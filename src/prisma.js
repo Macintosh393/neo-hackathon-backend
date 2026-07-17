@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 let prisma;
 
@@ -120,4 +120,4 @@ if (process.env.NODE_ENV === 'test') {
   prisma = new PrismaClient();
 }
 
-module.exports = prisma;
+export default prisma;

@@ -1,10 +1,10 @@
-const prisma = require('../prisma');
-const calendarService = require('../services/googleCalendar.service');
+import prisma from '../prisma.js';
+import calendarService from '../services/googleCalendar.service.js';
 
 /**
  * Auth Controller for Google OAuth login.
  */
-exports.loginWithGoogle = async (req, res, next) => {
+export const loginWithGoogle = async (req, res, next) => {
   try {
     const { code } = req.body;
 
@@ -47,4 +47,8 @@ exports.loginWithGoogle = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  loginWithGoogle
 };

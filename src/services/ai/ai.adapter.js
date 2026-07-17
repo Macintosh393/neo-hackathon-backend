@@ -1,6 +1,9 @@
-const { GoogleGenAI } = process.env.NODE_ENV === 'test'
-  ? require('../../__tests__/mocks/gemini.mock').mockGoogleGenAI
-  : require('@google/genai');
+import { mockGoogleGenAI } from '../../__tests__/mocks/gemini.mock.js';
+import { GoogleGenAI as RealGoogleGenAI } from '@google/genai';
+
+const GoogleGenAI = process.env.NODE_ENV === 'test'
+  ? mockGoogleGenAI.GoogleGenAI
+  : RealGoogleGenAI;
 
 // Helper to construct Gemini prompt template
 const generatePrompt = (project, maxMinutes) => `
@@ -33,13 +36,9 @@ You must return ONLY a valid JSON object matching this schema. Do not wrap the J
 }
 `;
 
-/**
- * AI Decomposer Service utilizing Google Gemini API.
- */
-exports.decomposeProject = async (project, persona) => {
+export const decomposeProject = async (project, persona) => {
   const apiKey = process.env.GEMINI_API_KEY || 'dummy-api-key';
 
-  // Fallback for local development/testing without real keys
   if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey')) {
     console.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
     return {
@@ -79,4 +78,8 @@ exports.decomposeProject = async (project, persona) => {
       ]
     };
   }
+};
+
+export default {
+  decomposeProject
 };

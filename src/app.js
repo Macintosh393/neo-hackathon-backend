@@ -1,10 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const swaggerUi = require('swagger-ui-express');
-const errorMiddleware = require('./middlewares/error.middleware');
-const swaggerDocument = require('../swagger.json');
+import apiRouter from './routes/index.js';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import errorMiddleware from './middlewares/error.middleware.js';
+import swaggerDocument from '../swagger.json' with { type: 'json' };
 
 const app = express();
 
@@ -35,7 +36,7 @@ app.get('/health', (req, res) => {
 });
 
 // Mount main API routes router
-app.use('/api', require('./routes'));
+app.use('/api', apiRouter);
 
 // Fallback for route not found
 app.use((req, res, next) => {
@@ -47,4 +48,4 @@ app.use((req, res, next) => {
 // Global Error Handler (Handles celebrate and standard errors)
 app.use(errorMiddleware);
 
-module.exports = app;
+export default app;

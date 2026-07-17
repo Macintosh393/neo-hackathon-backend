@@ -1,4 +1,4 @@
-const { celebrate, Joi, Segments } = require('celebrate');
+import { celebrate, Joi, Segments } from 'celebrate';
 
 const getSessions = celebrate({
   [Segments.QUERY]: Joi.object().keys({
@@ -35,7 +35,7 @@ const deleteSession = celebrate({
   })
 });
 
-module.exports = {
+export {
   getSessions,
   createSession,
   updateSession,

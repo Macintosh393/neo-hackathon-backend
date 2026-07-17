@@ -1,6 +1,6 @@
-const { mockCalendarList, mockFreebusyQuery } = require('../mocks/googleCalendar.mock');
-const prisma = require('../../prisma');
-const calendarService = require('../../services/googleCalendar.service');
+import { mockCalendarList, mockFreebusyQuery } from '../mocks/googleCalendar.mock.js';
+import prisma from '../../prisma.js';
+import calendarService from '../../services/googleCalendar.service.js';
 
 describe('Google Calendar Service', () => {
   beforeEach(() => {

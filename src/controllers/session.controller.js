@@ -1,9 +1,9 @@
-const prisma = require('../prisma');
+import prisma from '../prisma.js';
 
 /**
  * Study Session CRUD Controller.
  */
-exports.getSessions = async (req, res, next) => {
+export const getSessions = async (req, res, next) => {
   try {
     const { startDate, endDate, projectId } = req.query;
 
@@ -29,7 +29,7 @@ exports.getSessions = async (req, res, next) => {
   }
 };
 
-exports.createSession = async (req, res, next) => {
+export const createSession = async (req, res, next) => {
   try {
     const { projectId, title, durationMinutes, startTime, endTime } = req.body;
 
@@ -50,7 +50,7 @@ exports.createSession = async (req, res, next) => {
   }
 };
 
-exports.updateSession = async (req, res, next) => {
+export const updateSession = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { startTime, endTime, status } = req.body;
@@ -78,7 +78,7 @@ exports.updateSession = async (req, res, next) => {
   }
 };
 
-exports.deleteSession = async (req, res, next) => {
+export const deleteSession = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -97,4 +97,11 @@ exports.deleteSession = async (req, res, next) => {
     }
     next(error);
   }
+};
+
+export default {
+  getSessions,
+  createSession,
+  updateSession,
+  deleteSession
 };

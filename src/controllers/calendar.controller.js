@@ -1,11 +1,12 @@
-const prisma = require('../prisma');
-const { format } = require('date-fns');
-const calendarService = require('../services/googleCalendar.service');
+import { rescheduleUserSessions } from '../jobs/cron.js';
+import prisma from '../prisma.js';
+import { format } from 'date-fns';
+import calendarService from '../services/googleCalendar.service.js';
 
 /**
  * Google Calendar Sync and View Controller.
  */
-exports.getView = async (req, res, next) => {
+export const getView = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
     const start = new Date(startDate);
@@ -101,7 +102,7 @@ exports.getView = async (req, res, next) => {
   }
 };
 
-exports.sync = async (req, res, next) => {
+export const sync = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -140,9 +141,9 @@ exports.sync = async (req, res, next) => {
   }
 };
 
-exports.recalculate = async (req, res, next) => {
+export const recalculate = async (req, res, next) => {
   try {
-    const { rescheduleUserSessions } = require('../jobs/cron');
+    
     const count = await rescheduleUserSessions(req.user.id);
     res.status(200).json({
       message: 'Recalculated successfully',
@@ -151,4 +152,10 @@ exports.recalculate = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  getView,
+  sync,
+  recalculate
 };

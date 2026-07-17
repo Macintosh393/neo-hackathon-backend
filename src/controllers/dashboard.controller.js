@@ -1,10 +1,10 @@
-const prisma = require('../prisma');
-const { differenceInCalendarDays, startOfDay, endOfDay } = require('date-fns');
+import prisma from '../prisma.js';
+import { differenceInCalendarDays, startOfDay, endOfDay } from 'date-fns';
 
 /**
  * Dashboard Data Aggregator.
  */
-exports.getDashboard = async (req, res, next) => {
+export const getDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
@@ -144,4 +144,8 @@ exports.getDashboard = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  getDashboard
 };

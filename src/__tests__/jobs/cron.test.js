@@ -1,12 +1,12 @@
 // Mock googleCalendar service
-const { mockCalendarList, mockFreebusyQuery } = require('../mocks/googleCalendar.mock');
-const calendarService = require('../../services/googleCalendar.service');
+import { mockCalendarList, mockFreebusyQuery } from '../mocks/googleCalendar.mock.js';
+import calendarService from '../../services/googleCalendar.service.js';
 
 calendarService.clearEvents = vi.fn().mockResolvedValue({});
 calendarService.createEvents = vi.fn().mockResolvedValue({});
 
-const prisma = require('../../prisma');
-const { rescheduleUserSessions } = require('../../jobs/cron');
+import prisma from '../../prisma.js';
+import { rescheduleUserSessions } from '../../jobs/cron.js';
 
 describe('Nightly Rescheduling Autopilot Job', () => {
   beforeEach(() => {

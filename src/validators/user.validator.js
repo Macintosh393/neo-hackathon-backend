@@ -1,4 +1,4 @@
-const { celebrate, Joi, Segments } = require('celebrate');
+import { celebrate, Joi, Segments } from 'celebrate';
 
 const putPersona = celebrate({
   [Segments.BODY]: Joi.object().keys({
@@ -9,6 +9,6 @@ const putPersona = celebrate({
   })
 });
 
-module.exports = {
+export {
   putPersona
 };

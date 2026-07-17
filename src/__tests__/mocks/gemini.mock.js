@@ -1,13 +1,16 @@
-const mockGenerateContent = vi.fn().mockResolvedValue({
-  text: JSON.stringify({
-    difficulty: 'medium',
-    sessions: [
-      { title: 'Аналіз вимог та архітектура', durationMinutes: 90 },
-      { title: 'Розробка REST API', durationMinutes: 120 },
-      { title: 'Тестування та багфікс', durationMinutes: 60 }
-    ]
-  })
-});
+if (!globalThis.__mockGenerateContent) {
+  globalThis.__mockGenerateContent = typeof vi !== 'undefined' ? vi.fn().mockResolvedValue({
+    text: JSON.stringify({
+      difficulty: 'medium',
+      sessions: [
+        { title: 'Аналіз вимог та архітектура', durationMinutes: 90 },
+        { title: 'Розробка REST API', durationMinutes: 120 },
+        { title: 'Тестування та багфікс', durationMinutes: 60 }
+      ]
+    })
+  }) : null;
+}
+const mockGenerateContent = globalThis.__mockGenerateContent;
 
 const mockGoogleGenAI = {
   GoogleGenAI: class GoogleGenAI {
@@ -20,7 +23,7 @@ const mockGoogleGenAI = {
   }
 };
 
-module.exports = {
+export {
   mockGoogleGenAI,
   mockGenerateContent
 };

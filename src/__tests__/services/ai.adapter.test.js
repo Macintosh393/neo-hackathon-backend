@@ -1,5 +1,5 @@
-const { mockGenerateContent } = require('../mocks/gemini.mock');
-const aiAdapter = require('../../services/ai/ai.adapter');
+import { mockGenerateContent } from '../mocks/gemini.mock.js';
+import aiAdapter from '../../services/ai/ai.adapter.js';
 
 describe('AI Adapter Service', () => {
   beforeEach(() => {

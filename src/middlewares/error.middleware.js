@@ -1,4 +1,4 @@
-const { isCelebrateError } = require('celebrate');
+import { isCelebrateError } from 'celebrate';
 
 /**
  * Global catch-all error handling middleware.
@@ -43,4 +43,4 @@ function errorMiddleware(err, req, res, next) {
   });
 }
 
-module.exports = errorMiddleware;
+export default errorMiddleware;

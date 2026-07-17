@@ -1,9 +1,9 @@
-const prisma = require('../prisma');
+import prisma from '../prisma.js';
 
 /**
  * Course CRUD Controller.
  */
-exports.getCourses = async (req, res, next) => {
+export const getCourses = async (req, res, next) => {
   try {
     const courses = await prisma.course.findMany({
       where: { userId: req.user.id }
@@ -14,7 +14,7 @@ exports.getCourses = async (req, res, next) => {
   }
 };
 
-exports.createCourse = async (req, res, next) => {
+export const createCourse = async (req, res, next) => {
   try {
     const { name } = req.body;
     
@@ -40,7 +40,7 @@ exports.createCourse = async (req, res, next) => {
   }
 };
 
-exports.updateCourse = async (req, res, next) => {
+export const updateCourse = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
@@ -63,7 +63,7 @@ exports.updateCourse = async (req, res, next) => {
   }
 };
 
-exports.deleteCourse = async (req, res, next) => {
+export const deleteCourse = async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -82,4 +82,11 @@ exports.deleteCourse = async (req, res, next) => {
     }
     next(error);
   }
+};
+
+export default {
+  getCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse
 };

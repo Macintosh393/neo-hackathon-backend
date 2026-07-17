@@ -1,7 +1,7 @@
-const prisma = require('../prisma');
-const greedyScheduler = require('../services/scheduling/greedyScheduler');
-const calendarService = require('../services/googleCalendar.service');
-const cron = require('node-cron');
+import prisma from '../prisma.js';
+import greedyScheduler from '../services/scheduling/greedyScheduler.js';
+import calendarService from '../services/googleCalendar.service.js';
+import cron from 'node-cron';
 
 /**
  * Recalculate and reschedule user study sessions starting from now.
@@ -144,7 +144,7 @@ const startCronJob = () => {
   });
 };
 
-module.exports = {
+export {
   rescheduleUserSessions,
   startCronJob
 };

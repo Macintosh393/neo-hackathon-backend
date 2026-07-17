@@ -1,9 +1,9 @@
-const prisma = require('../prisma');
+import prisma from '../prisma.js';
 
 /**
  * User Profile and Persona Controller.
  */
-exports.getMe = async (req, res, next) => {
+export const getMe = async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id }
@@ -28,7 +28,7 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
-exports.updatePersona = async (req, res, next) => {
+export const updatePersona = async (req, res, next) => {
   try {
     const { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay } = req.body;
     
@@ -53,4 +53,9 @@ exports.updatePersona = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  getMe,
+  updatePersona
 };

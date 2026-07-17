@@ -1,151 +1,168 @@
-const { google } = process.env.NODE_ENV === 'test'
-  ? require('../__tests__/mocks/googleCalendar.mock').mockGoogleApis
-  : require('googleapis');
+import { mockGoogleApis } from '../__tests__/mocks/googleCalendar.mock.js';
+import { google as realGoogle } from 'googleapis';
+import prisma from '../prisma.js';
 
-const prisma = require('../prisma');
+const google = process.env.NODE_ENV === 'test'
+  ? mockGoogleApis.google
+  : realGoogle;
 
-// Setup standard OAuth client
-const getOAuth2Client = () => {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID || 'mock-client-id',
-    process.env.GOOGLE_CLIENT_SECRET || 'mock-client-secret',
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/oauth2callback'
+export const getAuthUrl = () => {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
   );
-};
 
-/**
- * Google Calendar Sync and Query Service.
- */
-exports.getAuthUrl = () => {
-  const client = getOAuth2Client();
-  return client.generateAuthUrl({
+  return oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    prompt: 'consent',
-    scope: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events'
-    ]
+    scope: ['https://www.googleapis.com/auth/calendar'],
+    prompt: 'consent'
   });
 };
 
-exports.getTokens = async (code) => {
-  const client = getOAuth2Client();
-  const { tokens } = await client.getToken(code);
+export const getTokens = async (code) => {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
+  );
+
+  const { tokens } = await oauth2Client.getToken(code);
   return tokens;
 };
 
-exports.getBusySlots = async (userId, startDate, endDate) => {
+export const getBusySlots = async (userId, startDate, endDate) => {
   const user = await prisma.user.findUnique({
     where: { id: userId }
   });
 
   if (!user || !user.googleRefreshToken) {
+    console.warn('[Google Calendar Service] User has no active Google credentials. Skipping busy slot query.');
     return [];
   }
 
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
+  );
 
-  // 1. Fetch user's calendars list
-  const calendarList = await calendar.calendarList.list();
-  const items = calendarList.data.items || [];
-
-  // 2. Filter out generic holidays, weather, or read-only public calendars
-  const filteredCalendars = items.filter(cal => {
-    const id = cal.id || '';
-    const summary = cal.summary || '';
-    if (id.includes('#holiday') || id.includes('holiday@group.v.calendar.google.com')) return false;
-    if (id.includes('weather') || summary.toLowerCase().includes('weather')) return false;
-    if (cal.accessRole === 'reader' && id.includes('group.v.calendar.google.com')) return false;
-    return true;
+  oauth2Client.setCredentials({
+    refresh_token: user.googleRefreshToken
   });
 
-  if (filteredCalendars.length === 0) {
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+  // Retrieve list of writeable/active calendars
+  const { data: calendarList } = await calendar.calendarList.list({
+    minAccessRole: 'writer'
+  });
+
+  // Filter out read-only holiday and contact calendars
+  const filteredItems = (calendarList.items || [])
+    .filter(item => !item.id.includes('#holiday') && !item.id.includes('group.v.calendar.google.com'))
+    .map(item => ({ id: item.id }));
+
+  if (filteredItems.length === 0) {
     return [];
   }
 
-  // 3. Request unified freebusy busy schedule
-  const response = await calendar.freebusy.query({
+  // Request free/busy schedule
+  const { data: freebusyData } = await calendar.freebusy.query({
     requestBody: {
-      timeMin: startDate.toISOString(),
-      timeMax: endDate.toISOString(),
-      items: filteredCalendars.map(cal => ({ id: cal.id }))
+      timeMin: new Date(startDate).toISOString(),
+      timeMax: new Date(endDate).toISOString(),
+      items: filteredItems
     }
   });
 
-  const calendarsBusy = response.data.calendars || {};
+  // Flatten and sort busy intervals
   const busySlots = [];
-
-  for (const calId in calendarsBusy) {
-    const busy = calendarsBusy[calId].busy || [];
-    busy.forEach(slot => {
-      busySlots.push({
-        start: slot.start,
-        end: slot.end
-      });
-    });
+  if (freebusyData.calendars) {
+    for (const calId of Object.keys(freebusyData.calendars)) {
+      const intervals = freebusyData.calendars[calId].busy || [];
+      for (const interval of intervals) {
+        busySlots.push({
+          start: interval.start,
+          end: interval.end
+        });
+      }
+    }
   }
 
-  return busySlots;
+  return busySlots.sort((a, b) => new Date(a.start) - new Date(b.start));
 };
 
-exports.createEvents = async (userId, sessions) => {
+export const createEvents = async (userId, sessions) => {
   const user = await prisma.user.findUnique({
     where: { id: userId }
   });
 
   if (!user || !user.googleRefreshToken) return;
 
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
+  );
+
+  oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
   for (const session of sessions) {
-    if (!session.startTime || !session.endTime) continue;
     await calendar.events.insert({
       calendarId: 'primary',
       requestBody: {
         summary: session.title,
-        description: 'Study session scheduled by Neoversity AI Planner.',
+        description: 'Auto-scheduled study session.',
         start: { dateTime: new Date(session.startTime).toISOString() },
-        end: { dateTime: new Date(session.endTime).toISOString() },
-        extendedProperties: {
-          private: {
-            source: 'neoversity',
-            sessionId: session.id
-          }
-        }
+        end: { dateTime: new Date(session.endTime).toISOString() }
       }
     });
   }
 };
 
-exports.clearEvents = async (userId, startDate, endDate) => {
+export const clearEvents = async (userId, startDate, endDate) => {
   const user = await prisma.user.findUnique({
     where: { id: userId }
   });
 
   if (!user || !user.googleRefreshToken) return;
 
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
+  );
 
-  const response = await calendar.events.list({
+  oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+  // Query events scheduled in timeframe
+  const { data: eventsList } = await calendar.events.list({
     calendarId: 'primary',
     timeMin: new Date(startDate).toISOString(),
     timeMax: new Date(endDate).toISOString(),
     singleEvents: true
   });
 
-  const events = response.data.items || [];
-  for (const event of events) {
-    if (event.extendedProperties?.private?.source === 'neoversity') {
-      await calendar.events.delete({
-        calendarId: 'primary',
-        eventId: event.id
-      });
-    }
+  // Filter study sessions and delete
+  const studyEvents = (eventsList.items || []).filter(
+    event => event.description && event.description.includes('study session')
+  );
+
+  for (const event of studyEvents) {
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId: event.id
+    });
   }
+};
+
+export default {
+  getAuthUrl,
+  getTokens,
+  getBusySlots,
+  createEvents,
+  clearEvents
 };

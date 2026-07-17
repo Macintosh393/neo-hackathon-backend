@@ -1,12 +1,12 @@
-const prisma = require('../prisma');
-const greedyScheduler = require('../services/scheduling/greedyScheduler');
-const aiAdapter = require('../services/ai/ai.adapter');
-const calendarService = require('../services/googleCalendar.service');
+import prisma from '../prisma.js';
+import greedyScheduler from '../services/scheduling/greedyScheduler.js';
+import aiAdapter from '../services/ai/ai.adapter.js';
+import calendarService from '../services/googleCalendar.service.js';
 
 /**
  * Project CRUD and Scheduling Controller.
  */
-exports.getProjects = async (req, res, next) => {
+export const getProjects = async (req, res, next) => {
   try {
     const { courseId, status } = req.query;
     
@@ -37,7 +37,7 @@ exports.getProjects = async (req, res, next) => {
   }
 };
 
-exports.createProject = async (req, res, next) => {
+export const createProject = async (req, res, next) => {
   try {
     const { courseId, title, description, deadline } = req.body;
 
@@ -149,7 +149,7 @@ exports.createProject = async (req, res, next) => {
   }
 };
 
-exports.batchImport = async (req, res, next) => {
+export const batchImport = async (req, res, next) => {
   try {
     const { projects } = req.body;
     const importedProjects = [];
@@ -258,7 +258,7 @@ exports.batchImport = async (req, res, next) => {
   }
 };
 
-exports.getProjectById = async (req, res, next) => {
+export const getProjectById = async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -283,7 +283,7 @@ exports.getProjectById = async (req, res, next) => {
   }
 };
 
-exports.updateProject = async (req, res, next) => {
+export const updateProject = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { title, description, deadline } = req.body;
@@ -311,7 +311,7 @@ exports.updateProject = async (req, res, next) => {
   }
 };
 
-exports.deleteProject = async (req, res, next) => {
+export const deleteProject = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -330,4 +330,13 @@ exports.deleteProject = async (req, res, next) => {
     }
     next(error);
   }
+};
+
+export default {
+  getProjects,
+  createProject,
+  batchImport,
+  getProjectById,
+  updateProject,
+  deleteProject
 };

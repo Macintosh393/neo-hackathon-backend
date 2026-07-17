@@ -1,5 +1,5 @@
-const request = require('supertest');
-const app = require('../../app');
+import request from 'supertest';
+import app from '../../app.js';
 
 // We use the Bearer mock token which is accepted by our auth.middleware stub
 const authHeader = 'Bearer dummy-token';
