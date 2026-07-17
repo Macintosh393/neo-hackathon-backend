@@ -1,16 +1,20 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const swaggerUi = require('swagger-ui-express');
-const errorMiddleware = require('./middlewares/error.middleware');
-const swaggerDocument = require('../swagger.json');
+import apiRouter from './routes/index.js';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import errorMiddleware from './middlewares/error.middleware.js';
+import swaggerDocument from '../swagger.json' with { type: 'json' };
+import { httpLogger } from './config/logger.js';
+import { NotFoundError } from './utils/AppError.js';
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(httpLogger);
 
 // Load rate limiter only in non-test environments
 if (process.env.NODE_ENV !== 'test') {
@@ -35,16 +39,14 @@ app.get('/health', (req, res) => {
 });
 
 // Mount main API routes router
-app.use('/api', require('./routes'));
+app.use('/api', apiRouter);
 
-// Fallback for route not found
+// Fallback for route not found — throws typed NotFoundError
 app.use((req, res, next) => {
-  const err = new Error('Not Found');
-  err.statusCode = 404;
-  next(err);
+  next(new NotFoundError('Not Found'));
 });
 
 // Global Error Handler (Handles celebrate and standard errors)
 app.use(errorMiddleware);
 
-module.exports = app;
+export default app;

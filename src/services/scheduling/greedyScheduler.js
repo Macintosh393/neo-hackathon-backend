@@ -1,4 +1,4 @@
-const { addDays, addMinutes, differenceInMinutes, isAfter, isBefore, isSameDay, set, getDay } = require('date-fns');
+import { addDays, addMinutes, differenceInMinutes, isAfter, isBefore, isSameDay, set, getDay } from 'date-fns';
 
 /**
  * pure Greedy Scheduler algorithm.
@@ -252,4 +252,4 @@ function runSchedulingPass({ aiSessions, persona, busy, deadline, start, pass, t
   return null;
 }
 
-module.exports = greedyScheduler;
+export default greedyScheduler;

@@ -1,7 +1,8 @@
-const router = require('express').Router();
-const projectController = require('../controllers/project.controller');
-const projectValidator = require('../validators/project.validator');
-const authMiddleware = require('../middlewares/auth.middleware');
+import express from 'express';
+const router = express.Router();
+import * as projectController from '../controllers/project.controller.js';
+import * as projectValidator from '../validators/project.validator.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
 
 router.use(authMiddleware);
 
@@ -12,4 +13,4 @@ router.get('/:id', projectValidator.getOrDeleteProject, projectController.getPro
 router.put('/:id', projectValidator.updateProject, projectController.updateProject);
 router.delete('/:id', projectValidator.getOrDeleteProject, projectController.deleteProject);
 
-module.exports = router;
+export default router;

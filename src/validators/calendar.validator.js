@@ -1,4 +1,4 @@
-const { celebrate, Joi, Segments } = require('celebrate');
+import { celebrate, Joi, Segments } from 'celebrate';
 
 const getView = celebrate({
   [Segments.QUERY]: Joi.object().keys({
@@ -7,6 +7,6 @@ const getView = celebrate({
   })
 });
 
-module.exports = {
+export {
   getView
 };

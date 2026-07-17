@@ -1,7 +1,8 @@
-const router = require('express').Router();
-const sessionController = require('../controllers/session.controller');
-const sessionValidator = require('../validators/session.validator');
-const authMiddleware = require('../middlewares/auth.middleware');
+import express from 'express';
+const router = express.Router();
+import * as sessionController from '../controllers/session.controller.js';
+import * as sessionValidator from '../validators/session.validator.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
 
 router.use(authMiddleware);
 
@@ -10,4 +11,4 @@ router.post('/', sessionValidator.createSession, sessionController.createSession
 router.put('/:id', sessionValidator.updateSession, sessionController.updateSession);
 router.delete('/:id', sessionValidator.deleteSession, sessionController.deleteSession);
 
-module.exports = router;
+export default router;

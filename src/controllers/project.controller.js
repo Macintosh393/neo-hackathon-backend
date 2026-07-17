@@ -1,333 +1,80 @@
-const prisma = require('../prisma');
-const greedyScheduler = require('../services/scheduling/greedyScheduler');
-const aiAdapter = require('../services/ai/ai.adapter');
-const calendarService = require('../services/googleCalendar.service');
+/**
+ * Project Controller — HTTP Adapter Layer
+ *
+ * This controller is intentionally thin. All business logic lives in
+ * src/services/project.service.js. The controller's sole responsibility
+ * is to translate HTTP input → service call → HTTP output.
+ */
+
+import asyncHandler from '../utils/asyncHandler.js';
+import * as projectService from '../services/project.service.js';
 
 /**
- * Project CRUD and Scheduling Controller.
+ * GET /api/projects
+ * Returns all projects owned by the authenticated user.
+ * Supports optional ?courseId= and ?status= query filters.
  */
-exports.getProjects = async (req, res, next) => {
-  try {
-    const { courseId, status } = req.query;
-    
-    const where = {
-      course: {
-        userId: req.user.id
-      }
-    };
-    if (courseId) where.courseId = courseId;
+export const getProjects = asyncHandler(async (req, res) => {
+  const projects = await projectService.getProjects(req.user.id, req.query);
+  res.status(200).json(projects);
+});
 
-    let projects = await prisma.project.findMany({
-      where,
-      include: {
-        sessions: true
-      }
-    });
+/**
+ * POST /api/projects
+ * Creates a new project with AI-decomposed and greedy-scheduled sessions.
+ */
+export const createProject = asyncHandler(async (req, res) => {
+  const result = await projectService.createProject(req.user.id, req.body, req.log);
+  res.status(201).json(result);
+});
 
-    if (status) {
-      projects = projects.filter(project => {
-        const allCompleted = project.sessions.length > 0 && project.sessions.every(s => s.status === 'COMPLETED');
-        return status === 'completed' ? allCompleted : !allCompleted;
-      });
-    }
+/**
+ * POST /api/projects/batch-import
+ * Imports multiple projects in one request.
+ * Failed individual projects are skipped — they do not abort the batch.
+ */
+export const batchImport = asyncHandler(async (req, res) => {
+  const { projects } = req.body;
+  const { importedProjects, failedCount } = await projectService.batchImportProjects(
+    req.user.id,
+    projects,
+    req.log,
+  );
 
-    res.status(200).json(projects);
-  } catch (error) {
-    next(error);
-  }
-};
+  res.status(201).json({
+    message: `Successfully imported and scheduled ${importedProjects.length} of ${projects.length} projects${
+      failedCount > 0 ? ` (${failedCount} skipped due to errors)` : ''
+    }`,
+    importedProjects,
+    ...(failedCount > 0 && { failedCount }),
+  });
+});
 
-exports.createProject = async (req, res, next) => {
-  try {
-    const { courseId, title, description, deadline } = req.body;
+/**
+ * GET /api/projects/:id
+ * Returns a single project by ID.
+ */
+export const getProjectById = asyncHandler(async (req, res) => {
+  const project = await projectService.getProjectById(req.params.id);
+  res.status(200).json(project);
+});
 
-    // Verify course ownership
-    const course = await prisma.course.findFirst({
-      where: { id: courseId, userId: req.user.id }
-    });
+/**
+ * PUT /api/projects/:id
+ * Partially updates project metadata (title, description, deadline).
+ */
+export const updateProject = asyncHandler(async (req, res) => {
+  const project = await projectService.updateProject(req.params.id, req.body);
+  res.status(200).json(project);
+});
 
-    if (!course) {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Course not found or unauthorized'
-      });
-    }
+/**
+ * DELETE /api/projects/:id
+ * Deletes a project and all its cascading sessions.
+ */
+export const deleteProject = asyncHandler(async (req, res) => {
+  await projectService.deleteProject(req.params.id);
+  res.status(204).end();
+});
 
-    // Fetch user profile (needs persona questionnaire data)
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-
-    const persona = user?.persona || {
-      courseYear: 3,
-      preferredTime: 'evening',
-      studyOnWeekends: false,
-      maxHoursPerDay: 4
-    };
-
-    // AI task decomposition using real Gemini API structure
-    const aiResponse = await aiAdapter.decomposeProject(
-      { courseName: course.name, title, description },
-      persona
-    );
-    const aiSessions = aiResponse.sessions;
-    const difficulty = aiResponse.difficulty || 'medium';
-
-    // Fetch busy slots from calendar service
-    let busySlots = [];
-    try {
-      busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(deadline));
-    } catch (err) {
-      console.warn('Failed to retrieve busy slots from Google Calendar, using empty schedule:', err);
-    }
-
-    // Run scheduling pure engine
-    const scheduledSessions = greedyScheduler({
-      aiSessions,
-      persona,
-      busySlots,
-      projectDeadline: new Date(deadline),
-      startDate: new Date()
-    });
-
-    // Save project and scheduled sessions in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const project = await tx.project.create({
-        data: {
-          courseId,
-          title,
-          description: description || null,
-          deadline: new Date(deadline),
-          estimatedDifficulty: difficulty
-        }
-      });
-
-      const sessionsData = scheduledSessions.map(s => ({
-        projectId: project.id,
-        title: s.title,
-        durationMinutes: s.durationMinutes,
-        startTime: new Date(s.startTime),
-        endTime: new Date(s.endTime),
-        status: 'SCHEDULED',
-        isCompromised: s.isCompromised,
-        compromiseReason: s.compromiseReason
-      }));
-
-      await tx.studySession.createMany({
-        data: sessionsData
-      });
-
-      const sessions = await tx.studySession.findMany({
-        where: { projectId: project.id }
-      });
-
-      return {
-        ...project,
-        sessions
-      };
-    });
-
-    // Write scheduled sessions to Google Calendar
-    try {
-      await calendarService.createEvents(req.user.id, result.sessions);
-    } catch (calError) {
-      console.warn('Google Calendar event writing failed:', calError);
-    }
-
-    res.status(201).json(result);
-
-  } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A project with this title already exists in this course'
-      });
-    }
-    next(error);
-  }
-};
-
-exports.batchImport = async (req, res, next) => {
-  try {
-    const { projects } = req.body;
-    const importedProjects = [];
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id }
-    });
-
-    const persona = user?.persona || {
-      courseYear: 3,
-      preferredTime: 'evening',
-      studyOnWeekends: false,
-      maxHoursPerDay: 4
-    };
-
-    // Process each project sequentially
-    for (const p of projects) {
-      // Find or create course by name
-      let course = await prisma.course.findFirst({
-        where: { name: p.courseName, userId: req.user.id }
-      });
-
-      if (!course) {
-        course = await prisma.course.create({
-          data: { name: p.courseName, userId: req.user.id }
-        });
-      }
-
-      // Decompose using Gemini AI
-      const aiResponse = await aiAdapter.decomposeProject(
-        { courseName: course.name, title: p.title, description: p.description },
-        persona
-      );
-      const aiSessions = aiResponse.sessions;
-      const difficulty = aiResponse.difficulty || 'medium';
-
-      // Query busy slots from Google Calendar
-      let busySlots = [];
-      try {
-        busySlots = await calendarService.getBusySlots(req.user.id, new Date(), new Date(p.deadline));
-      } catch (err) {
-        console.warn('Google Calendar busy retrieval failed during batch import:', err);
-      }
-
-      const scheduledSessions = greedyScheduler({
-        aiSessions,
-        persona,
-        busySlots,
-        projectDeadline: new Date(p.deadline),
-        startDate: new Date()
-      });
-
-      const result = await prisma.$transaction(async (tx) => {
-        const project = await tx.project.create({
-          data: {
-            courseId: course.id,
-            title: p.title,
-            description: p.description || null,
-            deadline: new Date(p.deadline),
-            estimatedDifficulty: difficulty
-          }
-        });
-
-        const sessionsData = scheduledSessions.map(s => ({
-          projectId: project.id,
-          title: s.title,
-          durationMinutes: s.durationMinutes,
-          startTime: new Date(s.startTime),
-          endTime: new Date(s.endTime),
-          status: 'SCHEDULED',
-          isCompromised: s.isCompromised,
-          compromiseReason: s.compromiseReason
-        }));
-
-        await tx.studySession.createMany({
-          data: sessionsData
-        });
-
-        const sessions = await tx.studySession.findMany({
-          where: { projectId: project.id }
-        });
-
-        return {
-          ...project,
-          sessions
-        };
-      });
-
-      // Sync events to Google Calendar
-      try {
-        await calendarService.createEvents(req.user.id, result.sessions);
-      } catch (calError) {
-        console.warn('Google Calendar event writing failed during batch import:', calError);
-      }
-
-      importedProjects.push(result);
-    }
-
-    res.status(201).json({
-      message: `Successfully imported and scheduled ${projects.length} projects`,
-      importedProjects
-    });
-
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.getProjectById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        sessions: true
-      }
-    });
-
-    if (!project) {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Project not found'
-      });
-    }
-
-    res.status(200).json(project);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.updateProject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { title, description, deadline } = req.body;
-
-    const data = {};
-    if (title !== undefined) data.title = title;
-    if (description !== undefined) data.description = description;
-    if (deadline !== undefined) data.deadline = new Date(deadline);
-
-    const project = await prisma.project.update({
-      where: { id },
-      data
-    });
-
-    res.status(200).json(project);
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Project not found'
-      });
-    }
-    next(error);
-  }
-};
-
-exports.deleteProject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.project.delete({
-      where: { id }
-    });
-
-    res.status(204).end();
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Project not found'
-      });
-    }
-    next(error);
-  }
-};
+export default { getProjects, createProject, batchImport, getProjectById, updateProject, deleteProject };

@@ -1,7 +1,9 @@
-const prisma = require('../prisma');
-const greedyScheduler = require('../services/scheduling/greedyScheduler');
-const calendarService = require('../services/googleCalendar.service');
-const cron = require('node-cron');
+import prisma from '../prisma.js';
+import greedyScheduler from '../services/scheduling/greedyScheduler.js';
+import calendarService from '../services/googleCalendar.service.js';
+import cron from 'node-cron';
+import { logger } from '../config/logger.js';
+import { DEFAULT_PERSONA } from '../constants/persona.js';
 
 /**
  * Recalculate and reschedule user study sessions starting from now.
@@ -12,12 +14,7 @@ const rescheduleUserSessions = async (userId) => {
   });
   if (!user) return 0;
 
-  const persona = user.persona || {
-    courseYear: 3,
-    preferredTime: 'evening',
-    studyOnWeekends: false,
-    maxHoursPerDay: 4
-  };
+  const persona = user.persona || DEFAULT_PERSONA;
 
   const now = new Date();
 
@@ -76,7 +73,7 @@ const rescheduleUserSessions = async (userId) => {
     try {
       busySlots = await calendarService.getBusySlots(userId, now, new Date(project.deadline));
     } catch (err) {
-      console.warn('Google Calendar busy query failed during rescheduling:', err);
+      logger.warn({ err, userId }, 'Google Calendar busy query failed during rescheduling');
     }
 
     // Execute scheduler
@@ -117,7 +114,7 @@ const rescheduleUserSessions = async (userId) => {
       const futureSessions = updatedSessions.filter(s => s.status === 'SCHEDULED' && new Date(s.startTime) >= now);
       await calendarService.createEvents(userId, futureSessions);
     } catch (calErr) {
-      console.warn('Google Calendar event write failed during rescheduling:', calErr);
+      logger.warn({ err: calErr, userId }, 'Google Calendar event write failed during rescheduling');
     }
 
     totalRescheduled += newScheduled.length;
@@ -131,20 +128,20 @@ const rescheduleUserSessions = async (userId) => {
  */
 const startCronJob = () => {
   cron.schedule('0 3 * * *', async () => {
-    console.log('[Autopilot Cron] Running nightly rescheduling at 03:00...');
+    logger.info('[Autopilot Cron] Running nightly rescheduling at 03:00...');
     try {
       const users = await prisma.user.findMany();
       for (const user of users) {
         await rescheduleUserSessions(user.id);
       }
-      console.log('[Autopilot Cron] Nightly rescheduling completed.');
+      logger.info('[Autopilot Cron] Nightly rescheduling completed.');
     } catch (err) {
-      console.error('[Autopilot Cron] Error executing nightly rescheduling:', err);
+      logger.error({ err }, '[Autopilot Cron] Error executing nightly rescheduling');
     }
   });
 };
 
-module.exports = {
+export {
   rescheduleUserSessions,
   startCronJob
 };

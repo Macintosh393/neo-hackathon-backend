@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "AI Time-Manager Backend for Software Engineering and IT students",
   "main": "src/server.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -28,10 +29,14 @@
     "googleapis": "^140.0.0",
     "helmet": "^8.3.0",
     "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.1",
     "nodemon": "^3.1.4",
     "prisma": "^5.16.1",
     "supertest": "^7.0.0",

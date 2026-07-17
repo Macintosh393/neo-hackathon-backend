@@ -1,4 +1,4 @@
-const greedyScheduler = require('../../services/scheduling/greedyScheduler');
+import greedyScheduler from '../../services/scheduling/greedyScheduler.js';
 
 describe('Greedy Scheduler Algorithm Tests', () => {
   // Common inputs using local dates to avoid timezone discrepancies

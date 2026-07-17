@@ -1,5 +1,5 @@
-const request = require('supertest');
-const app = require('../app');
+import request from 'supertest';
+import app from '../app.js';
 
 describe('GET /health', () => {
   it('should return 200 OK and health status', async () => {
@@ -15,7 +15,7 @@ describe('GET /invalid-route-error', () => {
     const res = await request(app).get('/invalid-route-error');
     expect(res.statusCode).toBe(404);
     expect(res.body.statusCode).toBe(404);
-    expect(res.body.error).toBe('Error');
+    expect(res.body.error).toBe('NotFoundError');
     expect(res.body.message).toBe('Not Found');
   });
 });

@@ -1,6 +1,73 @@
-const { mockCalendarList, mockFreebusyQuery } = require('../mocks/googleCalendar.mock');
-const prisma = require('../../prisma');
-const calendarService = require('../../services/googleCalendar.service');
+/**
+ * Google Calendar Service Tests
+ *
+ * Uses vi.mock() to intercept the `googleapis` module at the Vitest
+ * level — no test infrastructure imported into production service code.
+ */
+
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+// --- Mocks for googleapis ---
+const mockCalendarList = vi.fn().mockResolvedValue({
+  data: {
+    items: [
+      { id: 'primary', summary: 'Primary Calendar', accessRole: 'owner' },
+      { id: 'holiday@group.v.calendar.google.com', summary: 'Holidays', accessRole: 'reader' },
+      { id: 'university-course@group.calendar.google.com', summary: 'Uni Schedule', accessRole: 'writer' },
+    ],
+  },
+});
+
+const mockFreebusyQuery = vi.fn().mockResolvedValue({
+  data: {
+    calendars: {
+      primary: {
+        busy: [
+          { start: '2026-07-16T09:00:00Z', end: '2026-07-16T11:00:00Z' },
+          { start: '2026-07-16T14:00:00Z', end: '2026-07-16T16:00:00Z' },
+        ],
+      },
+      'university-course@group.calendar.google.com': {
+        busy: [{ start: '2026-07-16T12:00:00Z', end: '2026-07-16T13:00:00Z' }],
+      },
+    },
+  },
+});
+
+const mockSetCredentials = vi.fn();
+const mockGetToken = vi.fn().mockResolvedValue({
+  tokens: {
+    access_token: 'mock-access-token',
+    refresh_token: 'mock-refresh-token',
+    expiry_date: Date.now() + 3600000,
+  },
+});
+const mockGenerateAuthUrl = vi.fn().mockImplementation((config) => {
+  const accessType = config?.access_type || '';
+  const prompt = config?.prompt || '';
+  return `https://mock-google-auth-url?access_type=${accessType}&prompt=${prompt}`;
+});
+
+vi.mock('googleapis', () => ({
+  google: {
+    calendar: () => ({
+      calendarList: { list: mockCalendarList },
+      freebusy: { query: mockFreebusyQuery },
+    }),
+    auth: {
+      OAuth2: class OAuth2 {
+        constructor() {
+          this.setCredentials = mockSetCredentials;
+          this.generateAuthUrl = mockGenerateAuthUrl;
+          this.getToken = mockGetToken;
+        }
+      },
+    },
+  },
+}));
+
+import prisma from '../../prisma.js';
+import calendarService from '../../services/googleCalendar.service.js';
 
 describe('Google Calendar Service', () => {
   beforeEach(() => {
@@ -25,7 +92,7 @@ describe('Google Calendar Service', () => {
       // Mock user in database with refresh token
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
-        googleRefreshToken: 'refresh-token-abc'
+        googleRefreshToken: 'refresh-token-abc',
       });
 
       const startDate = new Date('2026-07-16T00:00:00Z');
@@ -34,13 +101,11 @@ describe('Google Calendar Service', () => {
       const busySlots = await calendarService.getBusySlots('user-123', startDate, endDate);
 
       // Verify db retrieval
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-123' }
-      });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'user-123' } });
 
       // Verify calendars listed and holidays excluded
       expect(mockCalendarList).toHaveBeenCalled();
-      
+
       // Verify freebusy query called with non-holiday calendar IDs
       expect(mockFreebusyQuery).toHaveBeenCalledWith({
         requestBody: {
@@ -48,16 +113,16 @@ describe('Google Calendar Service', () => {
           timeMax: endDate.toISOString(),
           items: [
             { id: 'primary' },
-            { id: 'university-course@group.calendar.google.com' }
-          ]
-        }
+            { id: 'university-course@group.calendar.google.com' },
+          ],
+        },
       });
 
       // Verify flattened busy slots returned
       expect(busySlots).toHaveLength(3);
       expect(busySlots[0]).toEqual({
         start: '2026-07-16T09:00:00Z',
-        end: '2026-07-16T11:00:00Z'
+        end: '2026-07-16T11:00:00Z',
       });
     });
   });

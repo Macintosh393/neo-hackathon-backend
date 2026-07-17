@@ -1,6 +1,6 @@
-const request = require('supertest');
-const app = require('../../app');
-const prisma = require('../../prisma');
+import request from 'supertest';
+import app from '../../app.js';
+import prisma from '../../prisma.js';
 
 // Manually mock the singleton instance methods to avoid ESM/CJS module hoisting issues
 prisma.user.findUnique = vi.fn();

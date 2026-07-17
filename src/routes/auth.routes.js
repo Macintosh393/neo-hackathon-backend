@@ -1,6 +1,7 @@
-const router = require('express').Router();
-const authController = require('../controllers/auth.controller');
-const { celebrate, Joi, Segments } = require('celebrate');
+import express from 'express';
+const router = express.Router();
+import * as authController from '../controllers/auth.controller.js';
+import { celebrate, Joi, Segments } from 'celebrate';
 
 // Inline validation for simple auth code payload
 router.post('/google', celebrate({
@@ -9,4 +10,4 @@ router.post('/google', celebrate({
   })
 }), authController.loginWithGoogle);
 
-module.exports = router;
+export default router;

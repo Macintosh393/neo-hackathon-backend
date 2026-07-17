@@ -1,151 +1,187 @@
-const { google } = process.env.NODE_ENV === 'test'
-  ? require('../__tests__/mocks/googleCalendar.mock').mockGoogleApis
-  : require('googleapis');
+/**
+ * Google Calendar Service
+ *
+ * Provides OAuth2-authenticated access to the Google Calendar API.
+ * All functions are safe to call when the user has no Google credentials —
+ * they return early with empty/void results and log a warning.
+ *
+ * Note: Mocking of `googleapis` is done exclusively at the Vitest test level
+ * via `vi.mock('googleapis')`. This file contains NO test-specific imports.
+ */
 
-const prisma = require('../prisma');
+import { google } from 'googleapis';
+import prisma from '../prisma.js';
+import { logger } from '../config/logger.js';
 
-// Setup standard OAuth client
-const getOAuth2Client = () => {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID || 'mock-client-id',
-    process.env.GOOGLE_CLIENT_SECRET || 'mock-client-secret',
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/oauth2callback'
+/**
+ * Builds an authenticated OAuth2 client using the user's stored refresh token.
+ * Returns null if the user has no active Google credentials.
+ *
+ * @param {string} userId
+ * @returns {Promise<OAuth2Client|null>}
+ */
+async function buildAuthClient(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || !user.googleRefreshToken) {
+    logger.warn({ userId }, '[Google Calendar Service] User has no active Google credentials.');
+    return null;
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
   );
+  oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
+  return oauth2Client;
+}
+
+/**
+ * Generates the Google OAuth2 authorization URL.
+ * Used to redirect the user for initial Google account linking.
+ *
+ * @returns {string} Authorization URL
+ */
+export const getAuthUrl = () => {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
+  );
+
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/calendar'],
+    prompt: 'consent',
+  });
 };
 
 /**
- * Google Calendar Sync and Query Service.
+ * Exchanges an OAuth2 authorization code for tokens.
+ *
+ * @param {string} code - Authorization code from Google OAuth callback
+ * @returns {Promise<object>} Token object containing refresh_token, id_token, etc.
  */
-exports.getAuthUrl = () => {
-  const client = getOAuth2Client();
-  return client.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
-    scope: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events'
-    ]
-  });
-};
+export const getTokens = async (code) => {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
+    process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
+  );
 
-exports.getTokens = async (code) => {
-  const client = getOAuth2Client();
-  const { tokens } = await client.getToken(code);
+  const { tokens } = await oauth2Client.getToken(code);
   return tokens;
 };
 
-exports.getBusySlots = async (userId, startDate, endDate) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId }
+/**
+ * Retrieves merged busy time slots from all active writable calendars.
+ * Filters out holiday and contacts calendars to avoid false conflicts.
+ *
+ * @param {string} userId
+ * @param {Date}   startDate
+ * @param {Date}   endDate
+ * @returns {Promise<Array<{ start: string, end: string }>>} Sorted busy intervals
+ */
+export const getBusySlots = async (userId, startDate, endDate) => {
+  const authClient = await buildAuthClient(userId);
+  if (!authClient) return [];
+
+  const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+  // Retrieve list of writeable/active calendars
+  const { data: calendarList } = await calendar.calendarList.list({
+    minAccessRole: 'writer',
   });
 
-  if (!user || !user.googleRefreshToken) {
-    return [];
-  }
+  // Filter out read-only holiday and contact calendars
+  const filteredItems = (calendarList.items || [])
+    .filter(
+      (item) =>
+        !item.id.includes('#holiday') &&
+        !item.id.includes('group.v.calendar.google.com'),
+    )
+    .map((item) => ({ id: item.id }));
 
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
+  if (filteredItems.length === 0) return [];
 
-  // 1. Fetch user's calendars list
-  const calendarList = await calendar.calendarList.list();
-  const items = calendarList.data.items || [];
-
-  // 2. Filter out generic holidays, weather, or read-only public calendars
-  const filteredCalendars = items.filter(cal => {
-    const id = cal.id || '';
-    const summary = cal.summary || '';
-    if (id.includes('#holiday') || id.includes('holiday@group.v.calendar.google.com')) return false;
-    if (id.includes('weather') || summary.toLowerCase().includes('weather')) return false;
-    if (cal.accessRole === 'reader' && id.includes('group.v.calendar.google.com')) return false;
-    return true;
-  });
-
-  if (filteredCalendars.length === 0) {
-    return [];
-  }
-
-  // 3. Request unified freebusy busy schedule
-  const response = await calendar.freebusy.query({
+  // Request free/busy schedule across all filtered calendars
+  const { data: freebusyData } = await calendar.freebusy.query({
     requestBody: {
-      timeMin: startDate.toISOString(),
-      timeMax: endDate.toISOString(),
-      items: filteredCalendars.map(cal => ({ id: cal.id }))
-    }
+      timeMin: new Date(startDate).toISOString(),
+      timeMax: new Date(endDate).toISOString(),
+      items: filteredItems,
+    },
   });
 
-  const calendarsBusy = response.data.calendars || {};
+  // Flatten and sort busy intervals from all calendars
   const busySlots = [];
-
-  for (const calId in calendarsBusy) {
-    const busy = calendarsBusy[calId].busy || [];
-    busy.forEach(slot => {
-      busySlots.push({
-        start: slot.start,
-        end: slot.end
-      });
-    });
+  if (freebusyData.calendars) {
+    for (const calId of Object.keys(freebusyData.calendars)) {
+      const intervals = freebusyData.calendars[calId].busy || [];
+      for (const interval of intervals) {
+        busySlots.push({ start: interval.start, end: interval.end });
+      }
+    }
   }
 
-  return busySlots;
+  return busySlots.sort((a, b) => new Date(a.start) - new Date(b.start));
 };
 
-exports.createEvents = async (userId, sessions) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId }
-  });
+/**
+ * Writes study session events to the user's primary Google Calendar.
+ * No-ops silently if the user has no linked Google account.
+ *
+ * @param {string} userId
+ * @param {Array<{ title, startTime, endTime }>} sessions
+ */
+export const createEvents = async (userId, sessions) => {
+  const authClient = await buildAuthClient(userId);
+  if (!authClient) return;
 
-  if (!user || !user.googleRefreshToken) return;
-
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
+  const calendar = google.calendar({ version: 'v3', auth: authClient });
 
   for (const session of sessions) {
-    if (!session.startTime || !session.endTime) continue;
     await calendar.events.insert({
       calendarId: 'primary',
       requestBody: {
         summary: session.title,
-        description: 'Study session scheduled by Neoversity AI Planner.',
+        description: 'Auto-scheduled study session.',
         start: { dateTime: new Date(session.startTime).toISOString() },
         end: { dateTime: new Date(session.endTime).toISOString() },
-        extendedProperties: {
-          private: {
-            source: 'neoversity',
-            sessionId: session.id
-          }
-        }
-      }
+      },
     });
   }
 };
 
-exports.clearEvents = async (userId, startDate, endDate) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId }
-  });
+/**
+ * Deletes auto-scheduled study session events from the user's primary calendar
+ * within a given time range. Identified by the description marker 'study session'.
+ *
+ * @param {string} userId
+ * @param {Date}   startDate
+ * @param {Date}   endDate
+ */
+export const clearEvents = async (userId, startDate, endDate) => {
+  const authClient = await buildAuthClient(userId);
+  if (!authClient) return;
 
-  if (!user || !user.googleRefreshToken) return;
+  const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  const client = getOAuth2Client();
-  client.setCredentials({ refresh_token: user.googleRefreshToken });
-  const calendar = google.calendar({ version: 'v3', auth: client });
-
-  const response = await calendar.events.list({
+  const { data: eventsList } = await calendar.events.list({
     calendarId: 'primary',
     timeMin: new Date(startDate).toISOString(),
     timeMax: new Date(endDate).toISOString(),
-    singleEvents: true
+    singleEvents: true,
   });
 
-  const events = response.data.items || [];
-  for (const event of events) {
-    if (event.extendedProperties?.private?.source === 'neoversity') {
-      await calendar.events.delete({
-        calendarId: 'primary',
-        eventId: event.id
-      });
-    }
+  const studyEvents = (eventsList.items || []).filter(
+    (event) => event.description && event.description.includes('study session'),
+  );
+
+  for (const event of studyEvents) {
+    await calendar.events.delete({ calendarId: 'primary', eventId: event.id });
   }
 };
+
+export default { getAuthUrl, getTokens, getBusySlots, createEvents, clearEvents };

@@ -1,5 +1,70 @@
-const request = require('supertest');
-const app = require('../../app');
+import { vi } from 'vitest';
+
+// Mock googleapis so calendarService.getTokens (used in auth controller)
+// and calendarService.getBusySlots/createEvents (used in project controller)
+// never hit the real Google API during integration tests.
+vi.mock('googleapis', () => ({
+  google: {
+    calendar: () => ({
+      calendarList: { list: vi.fn().mockResolvedValue({ data: { items: [] } }) },
+      freebusy: { query: vi.fn().mockResolvedValue({ data: { calendars: {} } }) },
+      events: {
+        insert: vi.fn().mockResolvedValue({}),
+        list: vi.fn().mockResolvedValue({ data: { items: [] } }),
+        delete: vi.fn().mockResolvedValue({}),
+      },
+    }),
+    auth: {
+      OAuth2: class OAuth2 {
+        constructor() {
+          this.setCredentials = vi.fn();
+          // generateAuthUrl returns a URL with the required query params
+          this.generateAuthUrl = vi.fn().mockImplementation((config) => {
+            const at = config?.access_type || '';
+            const p = config?.prompt || '';
+            return `https://mock-google-auth-url?access_type=${at}&prompt=${p}`;
+          });
+          // getToken returns a valid token set including an id_token
+          this.getToken = vi.fn().mockResolvedValue({
+            tokens: {
+              access_token: 'mock-access-token',
+              refresh_token: 'mock-refresh-token',
+              // Manually-crafted base64 JWT: header.payload.signature
+              id_token: [
+                btoa(JSON.stringify({})),
+                btoa(JSON.stringify({ email: 'mockstudent@university.edu' })),
+                'signature',
+              ].join('.'),
+              expiry_date: Date.now() + 3600000,
+            },
+          });
+        }
+      },
+    },
+  },
+}));
+
+// Mock @google/genai so AI decomposition returns a canned response
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class GoogleGenAI {
+    constructor() {
+      this.models = {
+        generateContent: vi.fn().mockResolvedValue({
+          text: JSON.stringify({
+            difficulty: 'medium',
+            sessions: [
+              { title: 'Аналіз вимог', durationMinutes: 90 },
+              { title: 'Кодування', durationMinutes: 120 },
+            ],
+          }),
+        }),
+      };
+    }
+  },
+}));
+
+import request from 'supertest';
+import app from '../../app.js';
 
 // We use the Bearer mock token which is accepted by our auth.middleware stub
 const authHeader = 'Bearer dummy-token';

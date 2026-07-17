@@ -1,5 +1,5 @@
-const Joi = require('joi');
-const dotenv = require('dotenv');
+import Joi from 'joi';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -19,7 +19,7 @@ if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
-module.exports = {
+export default {
   port: envVars.PORT,
   databaseUrl: envVars.DATABASE_URL,
   jwtSecret: envVars.JWT_SECRET,
