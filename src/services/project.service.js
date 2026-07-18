@@ -180,6 +180,7 @@ export async function createProject(userId, { courseId, title, description, dead
   // 2. Load user persona (falls back to defaults if not set)
   const user = await prisma.user.findUnique({ where: { id: userId } });
   const persona = user?.persona || DEFAULT_PERSONA;
+  const timezone = user?.timezone || 'Europe/Kyiv';
 
   // 3. AI task decomposition
   const aiResponse = await aiAdapter.decomposeProject(
@@ -199,6 +200,7 @@ export async function createProject(userId, { courseId, title, description, dead
     busySlots,
     projectDeadline: new Date(deadline),
     startDate: new Date(),
+    timezone,
   });
 
   // 6. Persist atomically
@@ -231,9 +233,10 @@ export async function createProject(userId, { courseId, title, description, dead
  * @returns {{ importedProjects: Array, failedCount: number }}
  */
 export async function batchImportProjects(userId, projects, log) {
-  // Load persona once for the whole batch
+  // Load persona and timezone once for the whole batch
   const user = await prisma.user.findUnique({ where: { id: userId } });
   const persona = user?.persona || DEFAULT_PERSONA;
+  const timezone = user?.timezone || 'Europe/Kyiv';
 
   const importedProjects = [];
   let failedCount = 0;
@@ -273,6 +276,7 @@ export async function batchImportProjects(userId, projects, log) {
         busySlots,
         projectDeadline: new Date(p.deadline),
         startDate: new Date(),
+        timezone,
       });
 
       // Persist

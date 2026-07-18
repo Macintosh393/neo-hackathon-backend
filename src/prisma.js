@@ -110,7 +110,9 @@ if (process.env.NODE_ENV === 'test') {
         isCompromised: false,
         compromiseReason: null
       })),
-      delete: vi.fn().mockResolvedValue({})
+      delete: vi.fn().mockResolvedValue({}),
+      // groupBy is used by dashboard controller for DB-level aggregation
+      groupBy: vi.fn().mockResolvedValue([])
     },
     $transaction: vi.fn().mockImplementation((cb) => {
       if (typeof cb === 'function') {

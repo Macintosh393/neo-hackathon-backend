@@ -88,7 +88,7 @@ describe('Google Calendar Service', () => {
   });
 
   describe('Calendar Busy Schedule Retrievals', () => {
-    it('getBusySlots - should retrieve user tokens, fetch active calendars, filter generic ones, and query freebusy schedule', async () => {
+    it('getBusySlots - should fetch ALL calendars, filter out generic holiday/contacts IDs, and include shared university calendars', async () => {
       // Mock user in database with refresh token
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-123',
@@ -103,10 +103,13 @@ describe('Google Calendar Service', () => {
       // Verify db retrieval
       expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'user-123' } });
 
-      // Verify calendars listed and holidays excluded
-      expect(mockCalendarList).toHaveBeenCalled();
+      // Verify ALL calendars fetched (no minAccessRole filter — must include shared read-only)
+      expect(mockCalendarList).toHaveBeenCalledWith();
 
-      // Verify freebusy query called with non-holiday calendar IDs
+      // Verify freebusy query called with:
+      //  - primary (owner): included
+      //  - holiday@group.v.calendar.google.com: EXCLUDED (generic holiday calendar)
+      //  - university-course@group.calendar.google.com: INCLUDED (shared university calendar)
       expect(mockFreebusyQuery).toHaveBeenCalledWith({
         requestBody: {
           timeMin: startDate.toISOString(),
@@ -118,7 +121,7 @@ describe('Google Calendar Service', () => {
         },
       });
 
-      // Verify flattened busy slots returned
+      // Verify flattened busy slots returned (primary: 2 slots, university: 1 slot)
       expect(busySlots).toHaveLength(3);
       expect(busySlots[0]).toEqual({
         start: '2026-07-16T09:00:00Z',
