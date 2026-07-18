@@ -12,7 +12,19 @@ import { NotFoundError } from './utils/AppError.js';
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || config.corsOrigin?.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Cors: origin ${origin} is not allowed`));
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(httpLogger);
 
