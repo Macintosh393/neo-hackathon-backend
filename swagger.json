@@ -1166,6 +1166,11 @@
                     "persona": {
                         "$ref": "#/components/schemas/PersonaInput"
                     },
+                    "timezone": {
+                        "type": "string",
+                        "description": "IANA timezone identifier used for scheduling boundary math (e.g. Europe/Kyiv, America/New_York). Defaults to Europe/Kyiv.",
+                        "example": "Europe/Kyiv"
+                    },
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
@@ -1174,11 +1179,13 @@
                 "required": [
                     "id",
                     "email",
+                    "timezone",
                     "createdAt"
                 ]
             },
             "PersonaInput": {
                 "type": "object",
+                "description": "User scheduling preferences. Drives the Greedy Scheduler algorithm constraints.",
                 "properties": {
                     "courseYear": {
                         "type": "integer",
@@ -1193,7 +1200,7 @@
                             "afternoon",
                             "evening"
                         ],
-                        "description": "Preferred study time-window"
+                        "description": "Preferred study time-window. morning=08-12, afternoon=12-17, evening=17-22."
                     },
                     "studyOnWeekends": {
                         "type": "boolean",
@@ -1204,6 +1211,12 @@
                         "minimum": 1,
                         "maximum": 12,
                         "description": "Maximum study hours per day constraint"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "description": "Optional IANA timezone for the user. When provided, scheduling boundaries (08:00, 22:00, etc.) are calculated in this timezone rather than the server's. Defaults to Europe/Kyiv if omitted.",
+                        "example": "Europe/London"
                     }
                 },
                 "required": [
