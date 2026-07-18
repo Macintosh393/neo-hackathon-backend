@@ -17,7 +17,7 @@
         }
     ],
     "paths": {
-        "/health": {
+        "/api/health": {
             "get": {
                 "summary": "Health Check",
                 "description": "Returns the health status and current timestamp of the server.",
