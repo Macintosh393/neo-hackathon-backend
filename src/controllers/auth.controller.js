@@ -28,7 +28,7 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
   const refreshToken = tokens.refresh_token;
 
   // Decode the ID token to extract the verified email address
-  let email = 'student@university.edu';
+  let email = null;
   if (tokens.id_token) {
     try {
       const payload = JSON.parse(
@@ -36,8 +36,14 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
       );
       if (payload.email) email = payload.email;
     } catch {
-      // Malformed id_token — fall back to default email
+      // Malformed id_token
     }
+  }
+
+  if (!email) {
+    return res.status(400).json({ 
+      message: 'Could not extract email from Google login. Ensure email/profile scopes are granted.' 
+    });
   }
 
   // Upsert user: create on first login, update refresh token on subsequent logins
