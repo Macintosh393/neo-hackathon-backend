@@ -32,7 +32,7 @@ Maximum Session Duration: ${maxMinutes} minutes
 1. Analyze the complexity of the project and assign an overall difficulty: "easy", "medium", or "hard".
 2. Break the project down into logical software engineering steps (e.g., Requirements Analysis, System Design, Coding, Testing, Documentation).
 3. Estimate the time required for each step in minutes.
-4. CRITICAL RULE: No single session can exceed the Maximum Session Duration (${maxMinutes} minutes). If a task takes longer, you MUST split it into multiple parts (e.g., "Coding Part 1", "Coding Part 2"). Sessions also MUST NOT be shorter than 15 minutes.
+4. CRITICAL RULE: No single session can exceed the Maximum Session Duration (${maxMinutes} minutes). If a task takes longer, you MUST split it into multiple logically distinct sub-tasks with DESCRIPTIVE titles (e.g., "Кодування схеми БД", "Кодування UI"). DO NOT use generic numeric suffixes like "Part 1", "Part 2", or "Частина 1". Sessions also MUST NOT be shorter than 15 minutes.
 5. Write the 'title' of each session in Ukrainian.
 
 ### OUTPUT FORMAT
