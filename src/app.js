@@ -1,3 +1,4 @@
+import config from './config/env.js';
 import apiRouter from './routes/index.js';
 import express from 'express';
 import cors from 'cors';
@@ -15,7 +16,7 @@ app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || config.corsOrigin?.includes(origin)) {
+      if (!origin || config.CORS_ORIGIN?.includes(origin)) {
         callback(null, true);
         return;
       }

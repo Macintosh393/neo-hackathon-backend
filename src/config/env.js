@@ -5,6 +5,7 @@ dotenv.config();
 
 const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
+  CORS_ORIGIN: Joi.string().required(),
   DATABASE_URL: Joi.string().required(),
   JWT_SECRET: Joi.string().required(),
   GEMINI_API_KEY: Joi.string().required(),
@@ -25,6 +26,7 @@ if (error) {
 
 export default {
   port: envVars.PORT,
+  CORS_ORIGIN: envVars.CORS_ORIGIN.split(',').map(o => o.trim()),
   databaseUrl: envVars.DATABASE_URL,
   jwtSecret: envVars.JWT_SECRET,
   geminiApiKey: envVars.GEMINI_API_KEY,
