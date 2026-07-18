@@ -24,7 +24,13 @@ prisma.studySession.delete = vi.fn();
 
 prisma.$transaction = vi.fn((cb) => cb(prisma));
 
-const authHeader = 'Bearer dummy-token';
+import jwt from 'jsonwebtoken';
+import config from '../../config/env.js';
+
+const mockUserId = '00000000-0000-0000-0000-000000000000';
+const mockEmail = 'mockstudent@university.edu';
+const token = jwt.sign({ sub: mockUserId, email: mockEmail }, config.jwtSecret);
+const authHeader = `Bearer ${token}`;
 
 describe('Database Integration Tests', () => {
   beforeEach(() => {
