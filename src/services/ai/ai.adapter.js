@@ -75,21 +75,36 @@ export const decomposeProject = async (project, persona) => {
     return buildFallbackSessions(project.title);
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const maxMinutes = persona.maxMinutesPerDay || (persona.maxHoursPerDay ? persona.maxHoursPerDay * 60 : 240);
-    const prompt = generatePrompt(project, maxMinutes);
+  const ai = new GoogleGenAI({ apiKey });
+  const maxMinutes = persona.maxMinutesPerDay || (persona.maxHoursPerDay ? persona.maxHoursPerDay * 60 : 240);
+  const prompt = generatePrompt(project, maxMinutes);
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
-    });
+  let retries = 3;
+  let delayMs = 15000; // Start with 15 seconds
 
-    return JSON.parse(response.text);
-  } catch (error) {
-    logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
-    return buildFallbackSessions(project.title);
+  while (retries >= 0) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      });
+
+      return JSON.parse(response.text);
+    } catch (error) {
+      const isRateLimit = error.message && error.message.includes('429');
+      
+      if (isRateLimit && retries > 0) {
+        logger.warn(`[AI Adapter] Rate limited by Gemini API. Retrying in ${delayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        retries--;
+        delayMs *= 2; // exponential backoff
+        continue;
+      }
+      
+      logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
+      return buildFallbackSessions(project.title);
+    }
   }
 };
 
