@@ -58,15 +58,15 @@ if (process.env.NODE_ENV === 'test') {
         deadline: new Date().toISOString(),
         estimatedDifficulty: 'medium'
       })),
-      findUnique: vi.fn().mockResolvedValue({
-        id: '33333333-3333-4333-8333-333333333333',
+      findUnique: vi.fn().mockImplementation(({ where }) => Promise.resolve({
+        id: where.id || '33333333-3333-4333-8333-333333333333',
         courseId: '22222222-2222-4222-8222-222222222222',
-        title: 'Coursework OS',
+        title: global.__MOCK_PROJECT_TITLE__ || 'Coursework OS',
         description: 'Mock project description',
         deadline: '2026-07-20T23:59:59.000Z',
         estimatedDifficulty: 'medium',
         sessions: []
-      }),
+      })),
       create: vi.fn().mockImplementation(({ data }) => Promise.resolve({
         id: '33333333-3333-4333-8333-333333333333',
         courseId: data.courseId,
@@ -83,6 +83,11 @@ if (process.env.NODE_ENV === 'test') {
         deadline: data.deadline || '2026-07-20T23:59:59.000Z',
         estimatedDifficulty: 'medium'
       })),
+      updateMany: vi.fn().mockImplementation(({ data }) => {
+        if (data && data.title) global.__MOCK_PROJECT_TITLE__ = data.title;
+        return Promise.resolve({ count: 1 });
+      }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       delete: vi.fn().mockResolvedValue({})
     },
     studySession: {
@@ -111,6 +116,22 @@ if (process.env.NODE_ENV === 'test') {
         compromiseReason: null
       })),
       delete: vi.fn().mockResolvedValue({}),
+      findUnique: vi.fn().mockImplementation(({ where }) => Promise.resolve({
+        id: where.id || '44444444-4444-4444-8444-444444444444',
+        projectId: '33333333-3333-4333-8333-333333333333',
+        title: 'Mock Session',
+        durationMinutes: 60,
+        startTime: '2026-07-16T10:00:00Z',
+        endTime: '2026-07-16T11:00:00Z',
+        status: global.__MOCK_SESSION_STATUS__ || 'COMPLETED',
+        isCompromised: false,
+        compromiseReason: null
+      })),
+      updateMany: vi.fn().mockImplementation(({ data }) => {
+        if (data.status) global.__MOCK_SESSION_STATUS__ = data.status;
+        return Promise.resolve({ count: 1 });
+      }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       // groupBy is used by dashboard controller for DB-level aggregation
       groupBy: vi.fn().mockResolvedValue([])
     },

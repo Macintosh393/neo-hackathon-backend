@@ -142,19 +142,20 @@ export async function getProjects(userId, { courseId, status } = {}) {
 
 /**
  * Fetches a single project by ID.
- * Throws NotFoundError if not found.
+ * Throws NotFoundError if not found or unauthorized.
  *
+ * @param {string} userId
  * @param {string} id
  * @returns {object} project
  */
-export async function getProjectById(id) {
-  const project = await prisma.project.findUnique({
-    where: { id },
+export async function getProjectById(userId, id) {
+  const project = await prisma.project.findFirst({
+    where: { id, course: { userId } },
     include: { sessions: true },
   });
 
   if (!project) {
-    throw new NotFoundError('Project not found');
+    throw new NotFoundError('Project not found or unauthorized');
   }
 
   return project;
@@ -309,41 +310,44 @@ export async function batchImportProjects(userId, projects, log) {
 
 /**
  * Partially updates a project's metadata.
- * Throws NotFoundError if the project does not exist.
+ * Throws NotFoundError if the project does not exist or unauthorized.
  *
+ * @param {string} userId
  * @param {string} id
  * @param {{ title?, description?, deadline? }} updates
  * @returns {object} updated project
  */
-export async function updateProject(id, updates) {
+export async function updateProject(userId, id, updates) {
   const data = {};
   if (updates.title !== undefined) data.title = updates.title;
   if (updates.description !== undefined) data.description = updates.description;
   if (updates.deadline !== undefined) data.deadline = new Date(updates.deadline);
 
-  try {
-    return await prisma.project.update({ where: { id }, data });
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-      throw new NotFoundError('Project not found');
-    }
-    throw err;
+  const result = await prisma.project.updateMany({
+    where: { id, course: { userId } },
+    data,
+  });
+
+  if (result.count === 0) {
+    throw new NotFoundError('Project not found or unauthorized');
   }
+
+  return prisma.project.findUnique({ where: { id } });
 }
 
 /**
  * Deletes a project (cascades to sessions via Prisma schema).
- * Throws NotFoundError if not found.
+ * Throws NotFoundError if not found or unauthorized.
  *
+ * @param {string} userId
  * @param {string} id
  */
-export async function deleteProject(id) {
-  try {
-    await prisma.project.delete({ where: { id } });
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-      throw new NotFoundError('Project not found');
-    }
-    throw err;
+export async function deleteProject(userId, id) {
+  const result = await prisma.project.deleteMany({
+    where: { id, course: { userId } },
+  });
+
+  if (result.count === 0) {
+    throw new NotFoundError('Project not found or unauthorized');
   }
 }

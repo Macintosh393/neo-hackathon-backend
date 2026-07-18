@@ -17,6 +17,39 @@
         }
     ],
     "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health Check",
+                "description": "Returns the health status and current timestamp of the server.",
+                "security": [],
+                "responses": {
+                    "200": {
+                        "description": "Server is up and running",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "OK"
+                                        },
+                                        "timestamp": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2026-07-18T12:00:00.000Z"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Health"
+                ]
+            }
+        },
         "/api/auth/google": {
             "post": {
                 "summary": "Authenticate with Google OAuth",
@@ -1163,6 +1196,11 @@
                         "type": "string",
                         "format": "email"
                     },
+                    "name": {
+                        "type": "string",
+                        "description": "User's full name extracted from Google profile",
+                        "nullable": true
+                    },
                     "persona": {
                         "$ref": "#/components/schemas/PersonaInput"
                     },
@@ -1901,6 +1939,10 @@
         {
             "name": "Dashboard",
             "description": "Dashboard progress statistics and analytics"
+        },
+        {
+            "name": "Health",
+            "description": "System health and status checks"
         }
     ]
 }

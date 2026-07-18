@@ -194,7 +194,11 @@ function runSchedulingPass({ aiSessions, persona, busy, deadline, start, pass, t
 
           if (pass < 4 && isAfter(sessEnd, deadline)) return null;
 
-          scheduled.push(buildScheduled(session.title, session.durationMinutes, sessStart, sessEnd, pass));
+          const finalTitle = session.currentPart 
+            ? `${session.baseTitle} (Частина ${session.currentPart})` 
+            : session.title;
+
+          scheduled.push(buildScheduled(finalTitle, session.durationMinutes, sessStart, sessEnd, pass));
           dailyStudyTime[dateKey] += session.durationMinutes;
           queue.shift();
 
@@ -203,20 +207,34 @@ function runSchedulingPass({ aiSessions, persona, busy, deadline, start, pass, t
         } else if (maxAllocatable >= 30) {
           // ── Split: minimum chunk is 30 minutes ───────────────────────────
           // ALGORITHM.md §6.1: split large sessions when the window is too small
-          const splitDuration = maxAllocatable;
+          let splitDuration = maxAllocatable;
+          let remainder = session.durationMinutes - splitDuration;
+
+          // Prevent micro-sessions (< 15 mins) by adjusting the split point
+          if (remainder > 0 && remainder < 15) {
+            splitDuration = session.durationMinutes - 15;
+            if (splitDuration < 15) {
+              break; // Skip to next window instead of creating tiny pieces
+            }
+          }
+
           const sessStart = new Date(f.start);
           const sessEnd   = addMinutes(sessStart, splitDuration);
 
           if (pass < 4 && isAfter(sessEnd, deadline)) return null;
 
-          const originalTitle = session.title;
-          scheduled.push(buildScheduled(`${originalTitle} (Частина 1)`, splitDuration, sessStart, sessEnd, pass));
+          const baseTitle = session.baseTitle || session.title;
+          const currentPart = session.currentPart || 1;
+
+          scheduled.push(buildScheduled(`${baseTitle} (Частина ${currentPart})`, splitDuration, sessStart, sessEnd, pass));
           dailyStudyTime[dateKey] += splitDuration;
 
           // Replace queue head with the remainder
           queue.shift();
           queue.unshift({
-            title: `${originalTitle} (Частина 2)`,
+            title: baseTitle, // Unused directly, baseTitle takes precedence
+            baseTitle: baseTitle,
+            currentPart: currentPart + 1,
             durationMinutes: session.durationMinutes - splitDuration,
             originalIndex: session.originalIndex,
           });

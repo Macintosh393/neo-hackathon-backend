@@ -32,7 +32,7 @@ Maximum Session Duration: ${maxMinutes} minutes
 1. Analyze the complexity of the project and assign an overall difficulty: "easy", "medium", or "hard".
 2. Break the project down into logical software engineering steps (e.g., Requirements Analysis, System Design, Coding, Testing, Documentation).
 3. Estimate the time required for each step in minutes.
-4. CRITICAL RULE: No single session can exceed the Maximum Session Duration (${maxMinutes} minutes). If a task takes longer, you MUST split it into multiple parts (e.g., "Coding Part 1", "Coding Part 2").
+4. CRITICAL RULE: No single session can exceed the Maximum Session Duration (${maxMinutes} minutes). If a task takes longer, you MUST split it into multiple logically distinct sub-tasks with DESCRIPTIVE titles (e.g., "Кодування схеми БД", "Кодування UI"). DO NOT use generic numeric suffixes like "Part 1", "Part 2", or "Частина 1". Sessions also MUST NOT be shorter than 15 minutes.
 5. Write the 'title' of each session in Ukrainian.
 
 ### OUTPUT FORMAT
@@ -48,16 +48,6 @@ You must return ONLY a valid JSON object matching this schema. Do not wrap the J
 }
 `;
 
-/** Fallback session list returned when AI is unavailable */
-const buildFallbackSessions = (title) => ({
-  difficulty: 'medium',
-  sessions: [
-    { title: `Аналіз вимог та архітектура для "${title}"`, durationMinutes: 90 },
-    { title: `Проєктування схеми даних для "${title}"`, durationMinutes: 120 },
-    { title: `Кодування основного функціоналу "${title}"`, durationMinutes: 180 },
-    { title: `Написання юніт-тестів для "${title}"`, durationMinutes: 90 },
-  ],
-});
 
 /**
  * Decomposes a university project into AI-generated study sessions.
@@ -69,27 +59,41 @@ const buildFallbackSessions = (title) => ({
 export const decomposeProject = async (project, persona) => {
   const apiKey = process.env.GEMINI_API_KEY || 'dummy-api-key';
 
-  // Detect test/dummy keys and return fallback immediately
+  // Detect test/dummy keys and throw an error immediately
   if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey') || apiKey === 'dummy-api-key') {
-    logger.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
-    return buildFallbackSessions(project.title);
+    throw new Error('[AI Adapter] Dummy API key detected. Provide a real GEMINI_API_KEY to use the AI service.');
   }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const maxMinutes = persona.maxMinutesPerDay || (persona.maxHoursPerDay ? persona.maxHoursPerDay * 60 : 240);
-    const prompt = generatePrompt(project, maxMinutes);
+  const ai = new GoogleGenAI({ apiKey });
+  const maxMinutes = persona.maxMinutesPerDay || (persona.maxHoursPerDay ? persona.maxHoursPerDay * 60 : 240);
+  const prompt = generatePrompt(project, maxMinutes);
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
-    });
+  let retries = 3;
+  let delayMs = 15000; // Start with 15 seconds
 
-    return JSON.parse(response.text);
-  } catch (error) {
-    logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
-    return buildFallbackSessions(project.title);
+  while (retries >= 0) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      });
+
+      return JSON.parse(response.text);
+    } catch (error) {
+      const isRateLimit = error.message && error.message.includes('429');
+      
+      if (isRateLimit && retries > 0) {
+        logger.warn(`[AI Adapter] Rate limited by Gemini API. Retrying in ${delayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        retries--;
+        delayMs *= 2; // exponential backoff
+        continue;
+      }
+      
+      logger.error({ err: error }, '[AI Adapter] Gemini API call failed entirely after retries.');
+      throw error;
+    }
   }
 };
 

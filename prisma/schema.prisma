@@ -10,6 +10,7 @@ datasource db {
 model User {
   id                 String   @id @default(uuid())
   email              String   @unique
+  name               String?  // Extracted from Google profile
   googleRefreshToken String?  // Token for background calendar access
   persona            Json?    // Stored questionnaire answers (JSONB in Postgres)
   timezone           String   @default("Europe/Kyiv") // IANA timezone (e.g. "Europe/Kyiv", "America/New_York")

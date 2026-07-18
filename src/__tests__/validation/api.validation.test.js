@@ -65,9 +65,14 @@ vi.mock('@google/genai', () => ({
 
 import request from 'supertest';
 import app from '../../app.js';
+import jwt from 'jsonwebtoken';
+import config from '../../config/env.js';
 
-// We use the Bearer mock token which is accepted by our auth.middleware stub
-const authHeader = 'Bearer dummy-token';
+// Create a real signed JWT for tests since the auth middleware now verifies it
+const mockUserId = '00000000-0000-0000-0000-000000000000';
+const mockEmail = 'mockstudent@university.edu';
+const token = jwt.sign({ sub: mockUserId, email: mockEmail }, config.jwtSecret);
+const authHeader = `Bearer ${token}`;
 
 describe('API Contract & Input Validation Tests', () => {
 

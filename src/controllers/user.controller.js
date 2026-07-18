@@ -24,6 +24,7 @@ export const getMe = asyncHandler(async (req, res) => {
   res.status(200).json({
     id: user.id,
     email: user.email,
+    name: user.name,
     persona: user.persona,
     createdAt: user.createdAt,
   });
@@ -50,6 +51,7 @@ export const updatePersona = asyncHandler(async (req, res) => {
   res.status(200).json({
     id: user.id,
     email: user.email,
+    name: user.name,
     persona: user.persona,
     timezone: user.timezone,
     createdAt: user.createdAt,

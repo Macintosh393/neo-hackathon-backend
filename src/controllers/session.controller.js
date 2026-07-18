@@ -15,7 +15,9 @@ import asyncHandler from '../utils/asyncHandler.js';
 export const getSessions = asyncHandler(async (req, res) => {
   const { startDate, endDate, projectId } = req.query;
 
-  const where = {};
+  const where = {
+    project: { course: { userId: req.user.id } }
+  };
   if (projectId) where.projectId = projectId;
 
   if (startDate || endDate) {
@@ -38,6 +40,14 @@ export const getSessions = asyncHandler(async (req, res) => {
  */
 export const createSession = asyncHandler(async (req, res) => {
   const { projectId, title, durationMinutes, startTime, endTime } = req.body;
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, course: { userId: req.user.id } }
+  });
+  
+  if (!project) {
+    return res.status(404).json({ message: 'Project not found or unauthorized' });
+  }
 
   const session = await prisma.studySession.create({
     data: {
@@ -66,21 +76,39 @@ export const updateSession = asyncHandler(async (req, res) => {
   if (endTime !== undefined) data.endTime = endTime ? new Date(endTime) : null;
   if (status !== undefined) data.status = status;
 
-  const session = await prisma.studySession.update({
-    where: { id: req.params.id },
+  const result = await prisma.studySession.updateMany({
+    where: { 
+      id: req.params.id,
+      project: { course: { userId: req.user.id } }
+    },
     data,
   });
 
-  res.status(200).json(session);
+  if (result.count === 0) {
+    return res.status(404).json({ message: 'Session not found or unauthorized' });
+  }
+
+  const updatedSession = await prisma.studySession.findUnique({ where: { id: req.params.id } });
+  res.status(200).json(updatedSession);
 });
 
 /**
  * DELETE /api/sessions/:id
  * Deletes a study session.
- * Prisma P2025 → 404 (handled centrally).
+ * Enforces ownership via project -> course -> userId.
  */
 export const deleteSession = asyncHandler(async (req, res) => {
-  await prisma.studySession.delete({ where: { id: req.params.id } });
+  const result = await prisma.studySession.deleteMany({
+    where: { 
+      id: req.params.id,
+      project: { course: { userId: req.user.id } }
+    }
+  });
+
+  if (result.count === 0) {
+    return res.status(404).json({ message: 'Session not found or unauthorized' });
+  }
+
   res.status(204).end();
 });
 
