@@ -55,7 +55,7 @@ describe('AI Adapter Service', () => {
 
     // Verify Gemini mock spy was called with correct args
     expect(mockGenerateContent).toHaveBeenCalledWith({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.1-flash-lite',
       contents: expect.stringContaining('gRPC'),
       config: { responseMimeType: 'application/json' },
     });

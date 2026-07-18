@@ -48,16 +48,6 @@ You must return ONLY a valid JSON object matching this schema. Do not wrap the J
 }
 `;
 
-/** Fallback session list returned when AI is unavailable */
-const buildFallbackSessions = (title) => ({
-  difficulty: 'medium',
-  sessions: [
-    { title: `Аналіз вимог та архітектура для "${title}"`, durationMinutes: 90 },
-    { title: `Проєктування схеми даних для "${title}"`, durationMinutes: 120 },
-    { title: `Кодування основного функціоналу "${title}"`, durationMinutes: 180 },
-    { title: `Написання юніт-тестів для "${title}"`, durationMinutes: 90 },
-  ],
-});
 
 /**
  * Decomposes a university project into AI-generated study sessions.
@@ -69,10 +59,9 @@ const buildFallbackSessions = (title) => ({
 export const decomposeProject = async (project, persona) => {
   const apiKey = process.env.GEMINI_API_KEY || 'dummy-api-key';
 
-  // Detect test/dummy keys and return fallback immediately
+  // Detect test/dummy keys and throw an error immediately
   if (apiKey === 'AIzaSyDummyKeyForTesting' || apiKey.includes('DummyKey') || apiKey === 'dummy-api-key') {
-    logger.warn('[AI Adapter] Dummy API key detected. Returning fallback study sessions.');
-    return buildFallbackSessions(project.title);
+    throw new Error('[AI Adapter] Dummy API key detected. Provide a real GEMINI_API_KEY to use the AI service.');
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -85,7 +74,7 @@ export const decomposeProject = async (project, persona) => {
   while (retries >= 0) {
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: prompt,
         config: { responseMimeType: 'application/json' },
       });
@@ -102,8 +91,8 @@ export const decomposeProject = async (project, persona) => {
         continue;
       }
       
-      logger.error({ err: error }, '[AI Adapter] Gemini API call failed. Returning fallback study sessions.');
-      return buildFallbackSessions(project.title);
+      logger.error({ err: error }, '[AI Adapter] Gemini API call failed entirely after retries.');
+      throw error;
     }
   }
 };
