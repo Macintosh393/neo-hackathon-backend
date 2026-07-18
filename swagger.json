@@ -1163,6 +1163,11 @@
                         "type": "string",
                         "format": "email"
                     },
+                    "name": {
+                        "type": "string",
+                        "description": "User's full name extracted from Google profile",
+                        "nullable": true
+                    },
                     "persona": {
                         "$ref": "#/components/schemas/PersonaInput"
                     },

@@ -29,12 +29,14 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
 
   // Decode the ID token to extract the verified email address
   let email = null;
+  let name = null;
   if (tokens.id_token) {
     try {
       const payload = JSON.parse(
         Buffer.from(tokens.id_token.split('.')[1], 'base64').toString(),
       );
       if (payload.email) email = payload.email;
+      if (payload.name) name = payload.name;
     } catch {
       // Malformed id_token
     }
@@ -49,8 +51,8 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
   // Upsert user: create on first login, update refresh token on subsequent logins
   const user = await prisma.user.upsert({
     where: { email },
-    update: { googleRefreshToken: refreshToken },
-    create: { email, googleRefreshToken: refreshToken },
+    update: { googleRefreshToken: refreshToken, ...(name && { name }) },
+    create: { email, googleRefreshToken: refreshToken, name },
   });
 
   // Sign a real JWT using the application secret
@@ -65,6 +67,7 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
     user: {
       id: user.id,
       email: user.email,
+      name: user.name,
       persona: user.persona,
       createdAt: user.createdAt,
     },
