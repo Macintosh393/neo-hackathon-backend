@@ -24,7 +24,15 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
   const { code } = req.body;
 
   // Exchange auth code for OAuth tokens (access + refresh + id_token)
-  const tokens = await calendarService.getTokens(code);
+  let tokens;
+  try {
+    tokens = await calendarService.getTokens(code);
+  } catch (error) {
+    return res.status(400).json({
+      message: 'Failed to exchange Google authorization code.',
+      error: error.message || error.toString()
+    });
+  }
   const refreshToken = tokens.refresh_token;
 
   // Decode the ID token to extract the verified email address
