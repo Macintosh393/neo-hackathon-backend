@@ -35,19 +35,23 @@ export const getMe = asyncHandler(async (req, res) => {
  * These drive the scheduling algorithm's preferences.
  */
 export const updatePersona = asyncHandler(async (req, res) => {
-  const { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay } = req.body;
+  const { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay, timezone } = req.body;
+
+  const updateData = {
+    persona: { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay },
+  };
+  if (timezone) updateData.timezone = timezone;
 
   const user = await prisma.user.update({
     where: { id: req.user.id },
-    data: {
-      persona: { courseYear, preferredTime, studyOnWeekends, maxHoursPerDay },
-    },
+    data: updateData,
   });
 
   res.status(200).json({
     id: user.id,
     email: user.email,
     persona: user.persona,
+    timezone: user.timezone,
     createdAt: user.createdAt,
   });
 });

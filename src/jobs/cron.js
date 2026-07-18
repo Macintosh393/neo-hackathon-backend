@@ -15,6 +15,7 @@ const rescheduleUserSessions = async (userId) => {
   if (!user) return 0;
 
   const persona = user.persona || DEFAULT_PERSONA;
+  const timezone = user.timezone || 'Europe/Kyiv';
 
   const now = new Date();
 
@@ -82,7 +83,8 @@ const rescheduleUserSessions = async (userId) => {
       persona,
       busySlots,
       projectDeadline: new Date(project.deadline),
-      startDate: now
+      startDate: now,
+      timezone,
     });
 
     // Write new scheduled sessions to DB
@@ -125,18 +127,35 @@ const rescheduleUserSessions = async (userId) => {
 
 /**
  * Initialize nightly cron schedule running at 03:00 daily.
+ * Users are processed in batches of BATCH_SIZE to avoid exhausting
+ * Google Calendar API rate limits and blocking the event loop.
  */
+const BATCH_SIZE = 10;
+
 const startCronJob = () => {
   cron.schedule('0 3 * * *', async () => {
     logger.info('[Autopilot Cron] Running nightly rescheduling at 03:00...');
     try {
-      const users = await prisma.user.findMany();
-      for (const user of users) {
-        await rescheduleUserSessions(user.id);
+      // Fetch only the IDs — avoid loading all user data into memory
+      const users = await prisma.user.findMany({ select: { id: true } });
+
+      for (let i = 0; i < users.length; i += BATCH_SIZE) {
+        const batch = users.slice(i, i + BATCH_SIZE);
+        // Process each batch sequentially to respect API rate limits.
+        // Per-user errors are caught inside rescheduleUserSessions.
+        for (const user of batch) {
+          try {
+            await rescheduleUserSessions(user.id);
+          } catch (userErr) {
+            logger.error({ err: userErr, userId: user.id }, '[Autopilot Cron] Error processing user, skipping');
+          }
+        }
+        logger.info(`[Autopilot Cron] Processed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`);
       }
+
       logger.info('[Autopilot Cron] Nightly rescheduling completed.');
     } catch (err) {
-      logger.error({ err }, '[Autopilot Cron] Error executing nightly rescheduling');
+      logger.error({ err }, '[Autopilot Cron] Fatal error during nightly rescheduling');
     }
   });
 };

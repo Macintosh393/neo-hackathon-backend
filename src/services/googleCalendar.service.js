@@ -89,17 +89,27 @@ export const getBusySlots = async (userId, startDate, endDate) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  // Retrieve list of writeable/active calendars
-  const { data: calendarList } = await calendar.calendarList.list({
-    minAccessRole: 'writer',
-  });
+  // Fetch ALL calendars the user can see.
+  // GOOGLE_CALENDAR_INTEGRATION.md: "Keep calendars where the user is owner
+  // or writer, plus any specific shared university calendars" — so we must
+  // NOT restrict by minAccessRole here, otherwise read-only shared class
+  // schedules would be invisible to the scheduler.
+  const { data: calendarList } = await calendar.calendarList.list();
 
-  // Filter out read-only holiday and contact calendars
+  // Filter out only clearly generic / non-personal calendars:
+  //  - #holiday@group.v.calendar.google.com  (national holidays)
+  //  - #contacts@group.v.calendar.google.com  (birthdays from contacts)
+  //  - weather@group.v.calendar.google.com    (weather forecasts)
+  // We intentionally KEEP university-shared calendars regardless of accessRole.
+  const GENERIC_CALENDAR_PATTERNS = [
+    'holiday@group.v.calendar.google.com',   // covers both en.uk#holiday@... and holiday@...
+    'contacts@group.v.calendar.google.com',
+    'weather@group.v.calendar.google.com',
+  ];
+
   const filteredItems = (calendarList.items || [])
     .filter(
-      (item) =>
-        !item.id.includes('#holiday') &&
-        !item.id.includes('group.v.calendar.google.com'),
+      (item) => !GENERIC_CALENDAR_PATTERNS.some((pattern) => item.id.includes(pattern)),
     )
     .map((item) => ({ id: item.id }));
 

@@ -141,38 +141,47 @@ describe('Database Integration Tests', () => {
 
   describe('Dashboard Integration & Aggregation', () => {
     it('GET /api/dashboard - should calculate correct analytics metrics', async () => {
-      // Mock data setup
-      const mockCourses = [
-        {
-          id: '11111111-1111-4111-8111-111111111111',
-          name: 'Algorithms',
-          projects: [
-            {
-              id: '33333333-3333-4333-8333-333333333333',
-              title: 'Lab 1',
-              deadline: new Date(2026, 6, 25, 23, 59, 59).toISOString(),
-              estimatedDifficulty: 'medium',
-              sessions: [
-                { id: 's-1', status: 'COMPLETED', durationMinutes: 60 },
-                { id: 's-2', status: 'COMPLETED', durationMinutes: 60 }
-              ]
-            },
-            {
-              id: '33333333-3333-4333-8333-333333333334',
-              title: 'Lab 2',
-              deadline: new Date(2026, 6, 27, 23, 59, 59).toISOString(),
-              estimatedDifficulty: 'hard',
-              sessions: [
-                { id: 's-3', status: 'SCHEDULED', durationMinutes: 120 },
-                { id: 's-4', status: 'COMPLETED', durationMinutes: 60 }
-              ]
-            }
-          ]
-        }
-      ];
+      // ------------------------------------------------------------------
+      // The new dashboard controller uses:
+      //  1. studySession.groupBy({ by: ['projectId', 'status'], _count: ... })
+      //  2. project.findMany({ select: { ..., course: { select: ... } } })
+      //  3. studySession.findMany() for today's agenda
+      //
+      // Data: 1 course ("Algorithms"), 2 projects, 4 sessions total
+      //   Lab 1: 2 COMPLETED → project completed
+      //   Lab 2: 1 SCHEDULED + 1 COMPLETED → project in progress
+      // Expected: totalSessions=4, completedSessions=3, percentage=75%
+      // ------------------------------------------------------------------
 
-      // Mock daily agenda session
-      const mockTodaysSessions = [
+      // Mock 1: groupBy returns session counts per project per status
+      prisma.studySession.groupBy.mockResolvedValue([
+        { projectId: '33333333-3333-4333-8333-333333333333', status: 'COMPLETED', _count: { id: 2 } },
+        { projectId: '33333333-3333-4333-8333-333333333334', status: 'SCHEDULED', _count: { id: 1 } },
+        { projectId: '33333333-3333-4333-8333-333333333334', status: 'COMPLETED', _count: { id: 1 } },
+      ]);
+
+      // Mock 2: project.findMany returns projects with course select (no sessions)
+      prisma.project.findMany.mockResolvedValue([
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          title: 'Lab 1',
+          deadline: new Date(2026, 6, 25, 23, 59, 59),
+          estimatedDifficulty: 'medium',
+          courseId: '11111111-1111-4111-8111-111111111111',
+          course: { id: '11111111-1111-4111-8111-111111111111', name: 'Algorithms' },
+        },
+        {
+          id: '33333333-3333-4333-8333-333333333334',
+          title: 'Lab 2',
+          deadline: new Date(2026, 6, 27, 23, 59, 59),
+          estimatedDifficulty: 'hard',
+          courseId: '11111111-1111-4111-8111-111111111111',
+          course: { id: '11111111-1111-4111-8111-111111111111', name: 'Algorithms' },
+        },
+      ]);
+
+      // Mock 3: today's agenda sessions
+      prisma.studySession.findMany.mockResolvedValue([
         {
           id: 's-5',
           projectId: '33333333-3333-4333-8333-333333333333',
@@ -183,17 +192,9 @@ describe('Database Integration Tests', () => {
           status: 'SCHEDULED',
           isCompromised: false,
           compromiseReason: null,
-          project: {
-            title: 'Lab 1',
-            course: {
-              name: 'Algorithms'
-            }
-          }
-        }
-      ];
-
-      prisma.course.findMany.mockResolvedValue(mockCourses);
-      prisma.studySession.findMany.mockResolvedValue(mockTodaysSessions);
+          project: { course: { name: 'Algorithms' } },
+        },
+      ]);
 
       const res = await request(app)
         .get('/api/dashboard')
