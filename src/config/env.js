@@ -10,7 +10,11 @@ const envSchema = Joi.object({
   GEMINI_API_KEY: Joi.string().required(),
   GOOGLE_CLIENT_ID: Joi.string().required(),
   GOOGLE_CLIENT_SECRET: Joi.string().required(),
-  GOOGLE_CALLBACK_URL: Joi.string().uri().required()
+  // Accept a full URI (production) or "postmessage" (Postman / Google JS client flow)
+  GOOGLE_CALLBACK_URL: Joi.alternatives()
+    .try(Joi.string().uri(), Joi.string().valid('postmessage'))
+    .required()
+
 }).unknown().required();
 
 const { error, value: envVars } = envSchema.validate(process.env);
