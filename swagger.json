@@ -484,7 +484,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Projects successfully imported and scheduled",
+                        "description": "Projects imported. Individual project failures are skipped — the batch always returns 201 with a count of successfully imported projects.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -492,15 +492,22 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Successfully imported and scheduled 2 projects"
+                                            "example": "Successfully imported and scheduled 3 of 4 projects (1 skipped due to errors)"
                                         },
                                         "importedProjects": {
                                             "type": "array",
+                                            "description": "Successfully created and scheduled projects",
                                             "items": {
                                                 "$ref": "#/components/schemas/ProjectWithSessions"
                                             }
+                                        },
+                                        "failedCount": {
+                                            "type": "integer",
+                                            "description": "Number of projects skipped due to processing errors. Only present when failedCount > 0.",
+                                            "example": 1
                                         }
-                                    }
+                                    },
+                                    "required": ["message", "importedProjects"]
                                 }
                             }
                         }
@@ -933,11 +940,35 @@
         },
         "/api/calendar/sync": {
             "post": {
-                "summary": "Sync with Google Calendar and schedule unscheduled sessions",
-                "description": "Fetches occupied slots from Google Calendar API, respects user's persona limits, and executes the scheduling algorithm on all currently unscheduled StudySessions.",
+                "summary": "Sync scheduled sessions to Google Calendar",
+                "description": "Writes the user's scheduled study sessions to their Google Calendar. Clears existing auto-scheduled events in the range and re-creates them. Google Calendar failures are soft — the endpoint always returns 200; calendar errors are logged server-side. Date range defaults to today → +30 days if not provided.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "startDate",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "Start of the sync window (ISO 8601). Defaults to now.",
+                        "example": "2026-07-18T00:00:00Z"
+                    },
+                    {
+                        "in": "query",
+                        "name": "endDate",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": "End of the sync window (ISO 8601). Defaults to +30 days from now.",
+                        "example": "2026-08-18T00:00:00Z"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Sync and scheduling executed",
+                        "description": "Sync completed. Calendar API failures do not change this status.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -949,6 +980,7 @@
                                         },
                                         "scheduledSessionsCount": {
                                             "type": "integer",
+                                            "description": "Number of sessions synced to Google Calendar",
                                             "example": 5
                                         }
                                     }
@@ -958,16 +990,6 @@
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway - Google Calendar API error",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1481,7 +1503,7 @@
                 "properties": {
                     "token": {
                         "type": "string",
-                        "description": "JWT Access Token for Bearer authentication headers"
+                        "description": "Signed JWT (HS256) for use in Authorization: Bearer headers. Payload contains { sub: userId, email }. Expires in 7 days."
                     },
                     "user": {
                         "$ref": "#/components/schemas/User"
@@ -1812,15 +1834,22 @@
             },
             "ErrorResponse": {
                 "type": "object",
+                "description": "Standardized error envelope returned for all 4xx and 5xx responses.",
                 "properties": {
                     "statusCode": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "HTTP status code mirroring the response status",
+                        "example": 404
                     },
                     "error": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Machine-readable error class name (e.g. NotFoundError, ConflictError, Bad Request for validation errors)",
+                        "example": "NotFoundError"
                     },
                     "message": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Human-readable explanation of the error",
+                        "example": "Project not found"
                     }
                 },
                 "required": [
