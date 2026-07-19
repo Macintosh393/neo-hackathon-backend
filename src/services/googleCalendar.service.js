@@ -155,19 +155,24 @@ export const createEvents = async (userId, sessions) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  await Promise.all(
-    sessions.map((session) =>
-      calendar.events.insert({
-        calendarId: 'primary',
-        requestBody: {
-          summary: session.title,
-          description: 'Auto-scheduled study session.',
-          start: { dateTime: new Date(session.startTime).toISOString() },
-          end: { dateTime: new Date(session.endTime).toISOString() },
-        },
-      }),
-    ),
-  );
+  // Process insertions in chunks to avoid Google Calendar API rate limits
+  const chunkSize = 5;
+  for (let i = 0; i < sessions.length; i += chunkSize) {
+    const chunk = sessions.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map((session) =>
+        calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: {
+            summary: session.title,
+            description: 'Auto-scheduled study session.',
+            start: { dateTime: new Date(session.startTime).toISOString() },
+            end: { dateTime: new Date(session.endTime).toISOString() },
+          },
+        }),
+      ),
+    );
+  }
 };
 
 /**
@@ -209,11 +214,16 @@ export const clearEvents = async (userId, startDate, endDate) => {
 
   logger.info({ userId, count: studyEvents.length }, '[Google Calendar Service] Deleting auto-scheduled events.');
 
-  await Promise.all(
-    studyEvents.map((event) =>
-      calendar.events.delete({ calendarId: 'primary', eventId: event.id }),
-    ),
-  );
+  // Process deletions in chunks to avoid Google Calendar API rate limits (403/429)
+  const chunkSize = 5;
+  for (let i = 0; i < studyEvents.length; i += chunkSize) {
+    const chunk = studyEvents.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map((event) =>
+        calendar.events.delete({ calendarId: 'primary', eventId: event.id }),
+      ),
+    );
+  }
 };
 
 export default { getAuthUrl, getTokens, getBusySlots, createEvents, clearEvents };
