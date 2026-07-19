@@ -136,6 +136,21 @@ describe('API Contract & Input Validation Tests', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.persona.courseYear).toBe(3);
     });
+
+    it('DELETE /me/data - should return 401 if Authorization header is missing', async () => {
+      const res = await request(app).delete('/api/users/me/data');
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('DELETE /me/data - should return 200 and clear user data when authorized', async () => {
+      const res = await request(app)
+        .delete('/api/users/me/data')
+        .set('Authorization', authHeader);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.message).toBe('All user data cleared successfully.');
+      expect(res.body.deleted).toBeDefined();
+      expect(typeof res.body.deleted.courses).toBe('number');
+    });
   });
 
   describe('Courses Routing (/api/courses)', () => {

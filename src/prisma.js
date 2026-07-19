@@ -47,7 +47,8 @@ if (process.env.NODE_ENV === 'test') {
         userId: where.userId || 'mock-user-id',
         name: data.name
       })),
-      delete: vi.fn().mockResolvedValue({})
+      delete: vi.fn().mockResolvedValue({}),
+      deleteMany: vi.fn().mockResolvedValue({ count: 2 })
     },
     project: {
       findMany: vi.fn().mockResolvedValue([]),
