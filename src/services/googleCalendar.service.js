@@ -207,9 +207,11 @@ export const clearEvents = async (userId, startDate, endDate) => {
 
   logger.info({ userId, count: studyEvents.length }, '[Google Calendar Service] Deleting auto-scheduled events.');
 
-  for (const event of studyEvents) {
-    await calendar.events.delete({ calendarId: 'primary', eventId: event.id });
-  }
+  await Promise.all(
+    studyEvents.map((event) =>
+      calendar.events.delete({ calendarId: 'primary', eventId: event.id }),
+    ),
+  );
 };
 
 export default { getAuthUrl, getTokens, getBusySlots, createEvents, clearEvents };
