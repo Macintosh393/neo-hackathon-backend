@@ -157,9 +157,11 @@ export const createEvents = async (userId, sessions) => {
 
   // Process insertions in chunks to avoid Google Calendar API rate limits
   const chunkSize = 5;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  
   for (let i = 0; i < sessions.length; i += chunkSize) {
     const chunk = sessions.slice(i, i + chunkSize);
-    await Promise.all(
+    await Promise.allSettled(
       chunk.map((session) =>
         calendar.events.insert({
           calendarId: 'primary',
@@ -172,6 +174,11 @@ export const createEvents = async (userId, sessions) => {
         }),
       ),
     );
+    
+    // Sleep to prevent hitting rate limits (429/403)
+    if (i + chunkSize < sessions.length) {
+      await delay(1000);
+    }
   }
 };
 
@@ -216,13 +223,20 @@ export const clearEvents = async (userId, startDate, endDate) => {
 
   // Process deletions in chunks to avoid Google Calendar API rate limits (403/429)
   const chunkSize = 5;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  
   for (let i = 0; i < studyEvents.length; i += chunkSize) {
     const chunk = studyEvents.slice(i, i + chunkSize);
-    await Promise.all(
+    await Promise.allSettled(
       chunk.map((event) =>
         calendar.events.delete({ calendarId: 'primary', eventId: event.id }),
       ),
     );
+    
+    // Sleep to prevent hitting rate limits
+    if (i + chunkSize < studyEvents.length) {
+      await delay(1000);
+    }
   }
 };
 
