@@ -190,7 +190,7 @@ export const clearEvents = async (userId, startDate, endDate) => {
   });
 
   const studyEvents = (eventsList.items || []).filter(
-    (event) => event.description && event.description.includes('study session'),
+    (event) => event.description === 'Auto-scheduled study session.',
   );
 
   for (const event of studyEvents) {
