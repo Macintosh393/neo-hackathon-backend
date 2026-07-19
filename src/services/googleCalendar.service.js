@@ -155,16 +155,30 @@ export const createEvents = async (userId, sessions) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  for (const session of sessions) {
-    await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: {
-        summary: session.title,
-        description: 'Auto-scheduled study session.',
-        start: { dateTime: new Date(session.startTime).toISOString() },
-        end: { dateTime: new Date(session.endTime).toISOString() },
-      },
-    });
+  // Process insertions in chunks to avoid Google Calendar API rate limits
+  const chunkSize = 5;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  
+  for (let i = 0; i < sessions.length; i += chunkSize) {
+    const chunk = sessions.slice(i, i + chunkSize);
+    await Promise.allSettled(
+      chunk.map((session) =>
+        calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: {
+            summary: session.title,
+            description: 'Auto-scheduled study session.',
+            start: { dateTime: new Date(session.startTime).toISOString() },
+            end: { dateTime: new Date(session.endTime).toISOString() },
+          },
+        }),
+      ),
+    );
+    
+    // Sleep to prevent hitting rate limits (429/403)
+    if (i + chunkSize < sessions.length) {
+      await delay(1000);
+    }
   }
 };
 
@@ -182,19 +196,47 @@ export const clearEvents = async (userId, startDate, endDate) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  const { data: eventsList } = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin: new Date(startDate).toISOString(),
-    timeMax: new Date(endDate).toISOString(),
-    singleEvents: true,
-  });
+  // Collect all matching events across paginated responses
+  const studyEvents = [];
+  let pageToken = undefined;
 
-  const studyEvents = (eventsList.items || []).filter(
-    (event) => event.description && event.description.includes('study session'),
-  );
+  do {
+    const { data: eventsList } = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: new Date(startDate).toISOString(),
+      timeMax: new Date(endDate).toISOString(),
+      singleEvents: true,
+      maxResults: 250,
+      pageToken,
+    });
 
-  for (const event of studyEvents) {
-    await calendar.events.delete({ calendarId: 'primary', eventId: event.id });
+    const pageStudyEvents = (eventsList.items || []).filter(
+      // Use trim() + includes() to guard against Google adding whitespace/newlines
+      (event) => event.description?.trim().includes('Auto-scheduled study session.'),
+    );
+
+    studyEvents.push(...pageStudyEvents);
+    pageToken = eventsList.nextPageToken;
+  } while (pageToken);
+
+  logger.info({ userId, count: studyEvents.length }, '[Google Calendar Service] Deleting auto-scheduled events.');
+
+  // Process deletions in chunks to avoid Google Calendar API rate limits (403/429)
+  const chunkSize = 5;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  
+  for (let i = 0; i < studyEvents.length; i += chunkSize) {
+    const chunk = studyEvents.slice(i, i + chunkSize);
+    await Promise.allSettled(
+      chunk.map((event) =>
+        calendar.events.delete({ calendarId: 'primary', eventId: event.id }),
+      ),
+    );
+    
+    // Sleep to prevent hitting rate limits
+    if (i + chunkSize < studyEvents.length) {
+      await delay(1000);
+    }
   }
 };
 

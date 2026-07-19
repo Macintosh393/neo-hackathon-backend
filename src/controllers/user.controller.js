@@ -8,6 +8,8 @@
 import prisma from '../prisma.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { NotFoundError } from '../utils/AppError.js';
+import calendarService from '../services/googleCalendar.service.js';
+import { logger } from '../config/logger.js';
 
 /**
  * GET /api/users/me
@@ -58,4 +60,35 @@ export const updatePersona = asyncHandler(async (req, res) => {
   });
 });
 
-export default { getMe, updatePersona };
+/**
+ * DELETE /api/users/me/data
+ * Deletes all the user's courses (cascades to projects and sessions)
+ * and removes all auto-scheduled study session events from Google Calendar.
+ * Calendar wipe is best-effort — failure is logged but does not block DB deletion.
+ */
+export const resetUserData = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  // 1 month back → 3 months forward covers all relevant scheduled sessions
+  const rangeStart = new Date();
+  rangeStart.setMonth(rangeStart.getMonth() - 1);
+  const rangeEnd = new Date();
+  rangeEnd.setMonth(rangeEnd.getMonth() + 3);
+
+  // Best-effort Google Calendar wipe — non-fatal if user has no token
+  try {
+    await calendarService.clearEvents(userId, rangeStart, rangeEnd);
+  } catch (err) {
+    logger.warn({ err, userId }, '[resetUserData] Calendar wipe failed — continuing with DB deletion');
+  }
+
+  // Delete all courses; Cascade takes care of Projects → StudySessions
+  const { count } = await prisma.course.deleteMany({ where: { userId } });
+
+  res.status(200).json({
+    message: 'All user data cleared successfully.',
+    deleted: { courses: count },
+  });
+});
+
+export default { getMe, updatePersona, resetUserData };

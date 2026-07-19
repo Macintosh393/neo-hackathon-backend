@@ -197,6 +197,52 @@
                 ]
             }
         },
+        "/api/users/me/data": {
+            "delete": {
+                "summary": "Reset all user data",
+                "description": "Deletes all courses (cascades to projects and sessions) and removes all auto-scheduled study session events from the user's Google Calendar. The Calendar wipe is best-effort — it will not block DB deletion if the user has no linked Google account.",
+                "responses": {
+                    "200": {
+                        "description": "All user data cleared successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "All user data cleared successfully."
+                                        },
+                                        "deleted": {
+                                            "type": "object",
+                                            "properties": {
+                                                "courses": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
         "/api/courses": {
             "get": {
                 "summary": "Get all courses",
