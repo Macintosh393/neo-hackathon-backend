@@ -69,9 +69,11 @@ export const updatePersona = asyncHandler(async (req, res) => {
 export const resetUserData = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
-  // Wide time window: covers anything we could have ever scheduled
-  const rangeStart = new Date('2000-01-01');
-  const rangeEnd   = new Date('2100-01-01');
+  // 1 month back → 3 months forward covers all relevant scheduled sessions
+  const rangeStart = new Date();
+  rangeStart.setMonth(rangeStart.getMonth() - 1);
+  const rangeEnd = new Date();
+  rangeEnd.setMonth(rangeEnd.getMonth() + 3);
 
   // Best-effort Google Calendar wipe — non-fatal if user has no token
   try {
