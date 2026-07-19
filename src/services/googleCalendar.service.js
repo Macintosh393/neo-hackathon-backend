@@ -182,16 +182,30 @@ export const clearEvents = async (userId, startDate, endDate) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  const { data: eventsList } = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin: new Date(startDate).toISOString(),
-    timeMax: new Date(endDate).toISOString(),
-    singleEvents: true,
-  });
+  // Collect all matching events across paginated responses
+  const studyEvents = [];
+  let pageToken = undefined;
 
-  const studyEvents = (eventsList.items || []).filter(
-    (event) => event.description === 'Auto-scheduled study session.',
-  );
+  do {
+    const { data: eventsList } = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: new Date(startDate).toISOString(),
+      timeMax: new Date(endDate).toISOString(),
+      singleEvents: true,
+      maxResults: 250,
+      pageToken,
+    });
+
+    const pageStudyEvents = (eventsList.items || []).filter(
+      // Use trim() + includes() to guard against Google adding whitespace/newlines
+      (event) => event.description?.trim().includes('Auto-scheduled study session.'),
+    );
+
+    studyEvents.push(...pageStudyEvents);
+    pageToken = eventsList.nextPageToken;
+  } while (pageToken);
+
+  logger.info({ userId, count: studyEvents.length }, '[Google Calendar Service] Deleting auto-scheduled events.');
 
   for (const event of studyEvents) {
     await calendar.events.delete({ calendarId: 'primary', eventId: event.id });
