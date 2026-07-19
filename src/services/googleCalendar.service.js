@@ -155,17 +155,19 @@ export const createEvents = async (userId, sessions) => {
 
   const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-  for (const session of sessions) {
-    await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: {
-        summary: session.title,
-        description: 'Auto-scheduled study session.',
-        start: { dateTime: new Date(session.startTime).toISOString() },
-        end: { dateTime: new Date(session.endTime).toISOString() },
-      },
-    });
-  }
+  await Promise.all(
+    sessions.map((session) =>
+      calendar.events.insert({
+        calendarId: 'primary',
+        requestBody: {
+          summary: session.title,
+          description: 'Auto-scheduled study session.',
+          start: { dateTime: new Date(session.startTime).toISOString() },
+          end: { dateTime: new Date(session.endTime).toISOString() },
+        },
+      }),
+    ),
+  );
 };
 
 /**
