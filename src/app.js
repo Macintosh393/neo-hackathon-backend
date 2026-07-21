@@ -29,15 +29,20 @@ app.use(
 app.use(express.json());
 app.use(httpLogger);
 
+// Health Check Endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Load rate limiter only in non-test environments
 if (process.env.NODE_ENV !== 'test') {
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 60 * 1000,
     max: 100,
     message: {
       statusCode: 429,
       error: 'Too Many Requests',
-      message: 'Too many requests from this IP, please try again after 15 minutes'
+      message: 'Too many requests from this IP, please try again after a minute'
     }
   });
   app.use(limiter);
@@ -45,11 +50,6 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Swagger UI Documentation Endpoint
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// Health Check Endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
 
 // Mount main API routes router
 app.use('/api', apiRouter);
